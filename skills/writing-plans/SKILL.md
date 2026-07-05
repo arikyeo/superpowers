@@ -26,6 +26,14 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
 
+## Evidence and Unknowns
+
+**The plan comes from evidence, not memory.** Read the relevant files and run the relevant read-only commands BEFORE writing tasks. A plan written before looking is a guess with formatting.
+
+**Inventory unknowns explicitly.** Fill the **Unknowns** header line: everything not yet verified, each paired with the task/step that verifies it. "Probably X" is not a plan line; "check whether X by doing Y (Task N)" is. "None" is a claim too — it means you verified, not that you didn't look.
+
+**Declare out-of-scope.** Fill the **Out of scope** header line: adjacent problems you noticed but will NOT touch. Each becomes a flag for your human partner, never a silent fix (the fence report in executing-plans carries them through execution).
+
 ## File Structure
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
@@ -80,6 +88,10 @@ Key principle: TDD cycles happen WITHIN tasks, not as separate tasks. A task is 
 **Tech Stack:** [Key technologies/libraries]
 
 **User decisions (already made):** [One line per decision the user made during brainstorming/planning, quotable. "none" if none.]
+
+**Unknowns:** [Not-yet-verified facts, each with the task that verifies it. "None — verified" only after actually looking.]
+
+**Out of scope:** [Adjacent issues noticed, deliberately untouched — flagged, never silently fixed.]
 
 ---
 ```

@@ -130,6 +130,40 @@ From 24 failure memories:
 - Implications of success
 - ANY communication suggesting completion/correctness
 
+## The Adversarial Pass (author → attacker)
+
+Running the command proves the claim you thought to make. This pass hunts the claims you didn't. Once verification evidence is in hand, switch roles: you are now the reviewer whose job is to find why this work is WRONG.
+
+Attack in order:
+1. **The requirements before your answer to them.** Read the spec/ticket as a hostile lawyer: do two rules contradict? Is an "always/never" revoked by another clause? Does the requested interface conflict with the requested behavior? A contradiction resolved silently is a decision made for someone else without telling them — surface it and state your resolution. A flawless implementation of a broken spec is still broken.
+2. **The inputs.** Empty, zero, negative, huge, malformed, concurrent, unicode, missing — what actually happens? Trace or run it; don't assume.
+3. **The assumptions.** List what must be true (environment, versions, ordering, state, permissions); verify the load-bearing ones against reality, not memory.
+4. **The evidence.** Would the test catch the bug it guards? A test that cannot fail proves nothing (red-green above).
+
+The pass ends in one of three verdicts:
+- **SURVIVED** — present the work. Findings the reader needs (edge cases that matter, what was checked) go in as facts.
+- **REFUTED** — fix it, re-run the pass on the fix, present with the defect named plainly.
+- **UNTESTABLE HERE** — present with exactly what could not be verified and why; your human partner inherits a known risk, not a hidden one.
+
+**The deliverable stays lean.** Findings earn their place in it; process narration does not. "Fails on empty input, fixed" is a finding — keep it. "I attacked this from five angles" is diary — cut it. Never weaken the claim to dodge an attack ("works in most cases") without flagging the retreat explicitly.
+
+**The tell:** wanting to skip this pass is the strongest signal it will find something. Reluctance to verify is data.
+
+## Live State Beats Description
+
+Verification runs against the LIVE system, not its description. Sources rank by how they lie:
+
+| The claim comes from | Treat it as | Verify by |
+|---|---|---|
+| A README, doc, or wiki | Stale by default | Run the code path, read the actual source |
+| A code comment | The code's opinion of itself | Read the code the comment describes |
+| A config file in the repo | What was INTENDED | Query the running system for the EFFECTIVE value |
+| Your memory or an earlier session | A point-in-time observation | Re-check now — the system moved since |
+| The user's description | Honest but possibly outdated | Confirm with a read-only probe |
+| A schema or type definition | Better, but migrations lie | Inspect actual data or live schema when it matters |
+
+Pick the **cheapest sufficient check**: if the authoritative artifact is already in front of you, the check IS reading it — probe (run it, query it, curl it) only when the truth is not in view or behavior could differ from the text. When description and reality disagree, reality wins AND the gap itself is a finding — report it in one line ("README says X, code does Y"). Timestamp what you learn: "as of this check, X" ages honestly; "X is true" rots silently.
+
 ## The Bottom Line
 
 **No shortcuts for verification.**

@@ -91,6 +91,28 @@ After all tasks complete and verified:
 
 **Ask for clarification rather than guessing.**
 
+## Re-Plan on Surprise
+
+When reality contradicts the plan mid-task — a file that doesn't exist, an API shaped differently than the plan assumed, a dependency the plan never mentioned — STOP. Do not improvise past a surprise; a surprised plan is an invalid plan. State what changed, update the plan (or raise it with your human partner if the change is structural), then continue.
+
+## Scope Fence
+
+The most reviewable diff contains exactly the requested change and nothing else. While executing:
+
+- **Inside the fence: full effort.** The task's genuine requirements (the import it needs, the test it breaks) are IN scope.
+- **Outside the fence: eyes open, hands off.** Dead code, a bug in a neighboring function, an outdated comment — record them, don't touch them.
+- **Gray zone:** would the task BREAK without the extra edit? In scope. Merely "while I'm here"? Out — flag it. Editor formatting churn on untouched lines? Revert it before presenting — it's diff noise. The fix reveals the real bug is elsewhere? Stop and re-fence with your human partner — don't silently relocate the fence.
+
+End the work with a fence report:
+
+```
+FENCE REPORT
+Changed: <files touched, each traceable to the task>
+Noticed, NOT touched: <adjacent issue> — <why it matters> — <suggested follow-up>
+```
+
+A good fence report is a gift: the clean diff that was asked for AND a map of what else deserves attention, each item a deliberate decision instead of a surprise in the diff.
+
 ## When to Revisit Earlier Steps
 
 **Return to Review (Step 1) when:**
