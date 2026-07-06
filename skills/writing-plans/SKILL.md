@@ -166,6 +166,8 @@ Every step must contain the actual content an engineer needs. These are **plan f
 - Steps that describe what to do without showing how (code blocks required for code steps)
 - References to types, functions, or methods not defined in any task
 
+**Edge cases: enumerate, don't wave.** "Add appropriate error handling" is banned above — the fix is to LIST the specific edge cases a task faces (empty, null, timeout, concurrent write, partial failure, rollback) and state the exact required behavior for each ("on empty input → return `[]`; on write conflict → last-writer-wins + audit row; on timeout after 5s → retry once then surface `E_TIMEOUT`"). A plan that says "handle errors" forces the implementer to invent the contract; a plan that enumerates them removes the guess. The bar: any implementer (Codex, Gemini, Cursor, a junior) executes mechanically with zero decisions.
+
 ## Remember
 - Exact file paths always
 - Complete code in every step — if a step changes code, show the code
