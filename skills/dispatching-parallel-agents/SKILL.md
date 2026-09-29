@@ -7,7 +7,7 @@ description: Use when facing 2+ independent tasks that can be worked on without 
 
 ## Overview
 
-You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
+You delegate tasks to agents with isolated context. Craft each assignment from the work product itself; agents never inherit your session's context or history.
 
 When you have multiple unrelated failures (different test files, different subsystems, different bugs), investigating them sequentially wastes time. Each investigation is independent and can happen in parallel.
 
@@ -76,13 +76,9 @@ Subagent (general-purpose): "Fix tool-approval-race-conditions.test.ts failures"
 
 Multiple dispatch calls in one response = parallel execution. One per response = sequential.
 
-### 4. Review and Integrate
+### 4. Integrate Results
 
-When agents return:
-- Read each summary
-- Verify fixes don't conflict
-- Run full test suite
-- Integrate all changes
+When agents return: check for conflicts in owned files/state, integrate, and verify the integrated result once. Reuse the owning worker's verification when that worker already owns and returned it; otherwise run the smallest check that covers integration. Do not rerun a full suite over unchanged, already-verified components.
 
 ## Agent Prompt Structure
 
@@ -156,63 +152,16 @@ Agent 3 → Fix tool-approval-race-conditions.test.ts
 - Agent 2: Fixed event structure bug (threadId in wrong place)
 - Agent 3: Added wait for async tool execution to complete
 
-**Integration:** All fixes independent, no conflicts, full suite green
+**Integration:** All fixes independent, no conflicts, integrated check green
 
 ## Verification
 
 After agents return:
-1. **Review each summary** - Understand what changed
-2. **Check for conflicts** - Did agents edit same code?
-3. **Run full suite** - Verify all fixes work together
-4. **Spot check** - Agents can make systematic errors
+1. **Review summaries for scope and conflicts** - did agents edit the same code?
+2. **Integrate all changes**
+3. **Verify the integrated result once** - reuse the owning worker's verification when it exists; no mandatory full-suite rerun
+4. **Spot check** only when risk warrants it; agents can make systematic errors
 
----
+## Optional Tracking
 
-## Native Task Integration
-
-Track parallel agent work with structured native tasks.
-
-### Before Dispatch
-
-Create a task per agent with structured description:
-
-```yaml
-TaskCreate:
-  subject: "[Agent assignment — concrete deliverable]"
-  description: |
-    **Goal:** [What this agent should produce]
-
-    **Files:**
-    - [Expected files to touch]
-
-    **Acceptance Criteria:**
-    - [ ] [Concrete criterion]
-
-    **Verify:** [Command to verify agent's work]
-
-    ```json:metadata
-    {"files": ["expected/files"], "verifyCommand": "test command", "acceptanceCriteria": ["criterion"]}
-    ```
-```
-
-See `skills/shared/task-format-reference.md` for the full task format reference.
-
-### Monitor Progress
-
-```
-TaskList
-```
-
-### After Completion
-
-When marking tasks completed via `TaskUpdate`, also sync `.tasks.json`:
-
-1. Read `<plan-path>.tasks.json`
-2. Set the task's `"status"` to `"completed"`
-3. Set `"lastUpdated"` to current ISO timestamp
-4. Write back
-
-### Notes
-
-- No blockedBy (parallel = independent)
-- Controller is responsible for `.tasks.json` sync (not the dispatched agents)
+Use the host's native task tool when it materially helps coordination. Agent-created tracking is not an approval gate: do not create a second tracker, require task metadata per agent, or sync a separate `.tasks.json`. No blockedBy (parallel = independent).

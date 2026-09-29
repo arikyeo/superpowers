@@ -11,9 +11,7 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
-
-Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
+Write a plan an engineer can execute without rediscovering the work. Lead with the result; use short sections, numbered outcomes, and only the detail needed to remove a real ambiguity.
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
@@ -26,12 +24,20 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
 
+## Evidence and Unknowns
+
+**The plan comes from evidence, not memory.** Read the relevant files and run the relevant read-only commands BEFORE writing tasks. A plan written before looking is a guess with formatting.
+
+**Inventory unknowns explicitly.** Fill the **Unknowns** header line: everything not yet verified, each paired with the task/step that verifies it. "Probably X" is not a plan line; "check whether X by doing Y (Task N)" is. "None" is a claim too — it means you verified, not that you didn't look.
+
+**Declare out-of-scope.** Fill the **Out of scope** header line: adjacent problems you noticed but will NOT touch. Each becomes a flag for your human partner, never a silent fix (the fence report in executing-plans carries them through execution).
+
 ## File Structure
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
 - Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
-- You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
+- You reason and edit more reliably about code you can hold in context at once — prefer smaller, focused files over large ones that do too much.
 - Files that change together should live together. Split by responsibility, not by technical layer.
 - In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure - but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
 
@@ -66,30 +72,37 @@ Key principle: TDD cycles happen WITHIN tasks, not as separate tasks. A task is 
 
 ## Plan Document Header
 
-**Every plan MUST start with this header:**
+Start with a title and one-sentence result. Include only sections that carry information:
 
 ```markdown
-# [Feature Name] Implementation Plan
+# [Feature name] implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-extended-cc:subagent-driven-development (recommended) or superpowers-extended-cc:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+Goal: <one-sentence observable result>
 
-**Goal:** [One sentence describing what this builds]
+## Boundaries
 
-**Architecture:** [2-3 sentences about approach]
+- In: <requested work>
+- Out: <adjacent work deliberately untouched>
 
-**Tech Stack:** [Key technologies/libraries]
+## Decisions and unknowns
 
-**Spec:** [path to the spec/design doc this plan implements — the plan
-argues from the spec, so the spec travels with it; executors read both]
+- <settled decision, or unknown plus the outcome that resolves it>
 
-## Global Constraints
+## Outcomes
 
-[Binding requirements every task must respect — exact values, formats, cross-component relationships ("same layout as X", "matches Y"). Execution controllers hand these to every reviewer. "none" if none.]
+1. <Complete outcome>
+   - Path: `path:anchor`
+   - Change: <literal behavior or edit>
+   - Done: <observable acceptance>
 
-**User decisions (already made):** [One line per decision the user made during brainstorming/planning, quotable. "none" if none.]
+## Verification
 
----
+- `<command>` -> <expected result>
 ```
+
+Use one shared **Verification** section unless an outcome needs a distinct command. Include global constraints, architecture, and technical context only when they change an outcome.
+
+Use bullets for distinct facts, numbered sections for ordered work, and real tables only for comparable repeated fields (at most four short columns). Keep blank lines around headings/lists and paragraphs to 1–3 short sentences. No empty sections, dense pipe-delimited records or duplicated prose/table summaries.
 
 ### Deferred decisions
 
@@ -100,66 +113,33 @@ If the plan schedules questions for the user (a DECIDE list, an AskUserQuestion 
 
 ## Task Structure
 
-````markdown
-### Task N: [Component Name]
-
-**Goal:** [One sentence — what this task produces]
-
-**Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
-
-**Acceptance Criteria:**
-- [ ] [Concrete, testable criterion]
-- [ ] [Another criterion]
-
-**Verify:** `exact test command` → expected output
-
-**Steps:**
-
-- [ ] **Step 1: Write the failing test**
-
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
+```markdown
+1. <Complete outcome>
+   - Path: `exact/path/to/file.py:anchor`
+   - Change: <implementation or migration>
+   - Done: <concrete, observable criterion>
+   - Verify: `<focused command>` -> <expected result>
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
-
-- [ ] **Step 3: Write minimal implementation**
-
-```python
-def function(input):
-    return expected
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
-```
-````
+Use a literal code or command packet only for fragile mechanics, an exact interface, a migration, or a user-required invocation. Do not include boilerplate, a generic TDD cycle, or a commit command in every outcome.
 
 ## No Placeholders
 
 Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
 - "TBD", "TODO", "implement later", "fill in details"
 - "Add appropriate error handling" / "add validation" / "handle edge cases"
-- "Write tests for the above" (without actual test code)
-- "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
-- Steps that describe what to do without showing how (code blocks required for code steps)
+- "Write tests for the above" (without named behavior or a command)
+- "Similar to Task N" when it hides a different behavior or acceptance criterion
+- Vague steps without concrete behavior or observable acceptance
 - References to types, functions, or methods not defined in any task
+
+**Edge cases: enumerate, don't wave.** State the exact behavior that matters, such as `empty input -> []` or `timeout after 5s -> E_TIMEOUT`. Do not repeat ordinary code merely to make an outcome standalone.
+
+## Specs, implementation notes, and research
+
+For a spec, use **Goal**, **Non-goals**, **Testable requirements**, **Decisions**, and **Acceptance**. For an implementation note, lead with the result, then list numbered outcomes and verification. A research plan states the **Question**, **Source method**, and **Stop criterion**; a research report states the **Answer**, **Findings** with evidence links, **Implications**, and **Unknowns**. Do not write a chronological research diary or invent evidence.
+
+Apply chat-summary limits to chat summaries only. Do not truncate a requested plan, spec, implementation note, or research report to fit a summary cap.
 
 ## Self-Review
 
@@ -205,12 +185,10 @@ AskUserQuestion:
   header: "Execution"
   options:
     - label: "Subagent-Driven (this session)"
-      description: "Runs here: fresh subagent per task, spec and quality review after every task. That review loop is what the other option gives up. Good default."
+      description: "I dispatch fresh subagent per task, review between tasks, fast iteration"
     - label: "Parallel Session (separate)"
-      description: "You open a second session that runs executing-plans WITHOUT the per-task review loop, while this one stays alive to answer its questions. Choose it when this session is nearly out of context, or when the plan has no frontier tasks and a cheaper model should do the work."
+      description: "Open new session in worktree with executing-plans, batch execution with checkpoints; it can message this session to consult"
 ```
-
-**Recommend one option:** append " (Recommended)" to the better fit's label (list it first) and prepend a one-line reason to its description. Default Subagent-Driven — the review loop is the point. Recommend Parallel Session only for a nearly-exhausted session; task count alone is never the reason. Cost is your human partner's reason, not yours: name it in the description, never in the recommendation. On a Fable/Opus session with no frontier tasks, add to the Parallel description which cheaper model fits (e.g. Sonnet); with frontier tasks, say which task needs the stronger model so the partner can split the run. Never reword the base labels.
 
 **If you are about to call ExitPlanMode, STOP — call AskUserQuestion instead.**
 
@@ -224,13 +202,8 @@ Invoke the Skill tool: `superpowers-extended-cc:subagent-driven-development`
 - Do NOT start working on tasks directly
 
 **If Parallel Session chosen:**
-Give the user this exact prompt to paste into a NEW session opened in the worktree, with the placeholders filled in. Put it in a fenced code block that holds the prompt and nothing else — the fence is what tells your human partner where the copy starts and stops. Model advice and notes go after the fence, never inside it:
-
-```text
-Invoke superpowers-extended-cc:executing-plans for <plan path>. The plan author session "<this session's title>" is still running. On any ambiguity or design question, find it with ListAgents and ask it via SendMessage before guessing.
-```
-
-A bare "run executing-plans" prompt loses the consultation link — the new session cannot know its author exists unless the prompt names it. On a Fable/Opus session with no frontier tasks, add one line: open it on a cheaper model (e.g. Sonnet). Keep this session alive to answer questions.
+Guide the user to open a new session in the worktree, then invoke: `superpowers-extended-cc:executing-plans`
+- The executing session can consult this session (the plan author) via SendMessage. Keep this session alive to answer questions.
 </HARD-GATE>
 
 ---
@@ -300,22 +273,9 @@ Without the axes, "looks good, keep going" closes are legal; with axes, the coor
 
 See `skills/shared/task-format-reference.md` → "User-Thrown Gates" for the full metadata schema with all six gate-related keys (`userGate`, `tags`, `requiresUserSpecification`, `gateScope`, `failurePolicy`, `subagentBrief`), and `docs/user-gate-flow.md` for the end-to-end flow.
 
-#### TaskCreate description — full structured body, not a summary
+#### TaskCreate description — compact execution record
 
-**Hard rule.** Every TaskCreate `description` MUST contain, verbatim, the same **Goal / Files / Acceptance Criteria / Verify** sections you wrote into the plan `.md` for that task. Do NOT condense into a one-sentence summary. Do NOT move the AC to "see the plan doc". Do NOT omit `**Verify:**`. The description MUST end with the `json:metadata` code fence.
-
-**Why it matters.** Both execution paths (`executing-plans` and `subagent-driven-development`) read the task description via TaskGet and pass it to the implementing subagent. A one-sentence description makes the subagent improvise AC. The plan `.md` is not a fallback — TaskGet does not read it.
-
-**Self-check before finishing the skill.** This is a mechanical count, not a read-and-confirm — a prose pass can be rubber-stamped, a count can't. For each of the four section headers (`**Goal:**`, `**Files:**`, `**Acceptance Criteria:**`, `**Verify:**`), run `grep -c` over `<plan>.tasks.json`:
-
-```bash
-grep -c '\*\*Goal:\*\*' <plan>.tasks.json
-grep -c '\*\*Files:\*\*' <plan>.tasks.json
-grep -c '\*\*Acceptance Criteria:\*\*' <plan>.tasks.json
-grep -c '\*\*Verify:\*\*' <plan>.tasks.json
-```
-
-Each count MUST equal the number of tasks. If any count is lower → a task dropped that section; TaskUpdate it to the full block BEFORE the Execution Handoff. Also confirm the `json:metadata` fence is present in every task. Fall back to per-task TaskGet only if the tasks file is missing.
+Keep the plan canonical. Each TaskCreate description records the task goal, affected paths, observable acceptance, verification command, and required `json:metadata`; it does not copy every ordinary code block from the plan. Add a literal packet only when the task cannot safely infer a fragile detail from the plan.
 
 **Keep subjects compact.** The harness re-injects every task's subject line into context on periodic reminders, so subjects are paid for repeatedly — aim for ≤ 60 characters and put detail in the description.
 
@@ -323,15 +283,13 @@ Each count MUST equal the number of tasks. If any count is lower → a task drop
 TaskCreate:
   subject: "Task N: [Component Name]"
   description: |
-    **Goal:** [From task's Goal line]
+    **Goal:** [Observable outcome]
 
-    **Files:**
-    [From task's Files section]
+    **Files:** [Affected paths]
 
-    **Acceptance Criteria:**
-    [From task's Acceptance Criteria]
+    **Acceptance Criteria:** [Concrete acceptance]
 
-    **Verify:** [From task's Verify line]
+    **Verify:** [Command and expected result]
 
     ```json:metadata
     {"files": ["path/to/file1.py"], "verifyCommand": "pytest tests/path/ -v", "acceptanceCriteria": ["criterion 1", "criterion 2"], "modelTier": "mechanical"}
@@ -341,12 +299,7 @@ TaskCreate:
 
 ### Why Embedded Metadata
 
-The `metadata` parameter on TaskCreate is accepted but **not returned by TaskGet**. Embedding it as a `json:metadata` code fence in the description ensures:
-- TaskGet returns the full metadata (it's part of the description)
-- Cross-session resume can parse it from .tasks.json
-- Subagent dispatch can extract it for implementer prompts
-
-See `skills/shared/task-format-reference.md` for the full metadata schema.
+`metadata` on TaskCreate is accepted but not returned by TaskGet (noted above) — a `json:metadata` fence in the description is the only way TaskGet, cross-session resume (`.tasks.json`), and subagent dispatch can all recover it. Full schema: `skills/shared/task-format-reference.md`.
 
 ### Setting Dependencies
 

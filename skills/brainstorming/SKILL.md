@@ -219,11 +219,10 @@ is the whole process.
 
 **Presenting the design:**
 
-- Once you believe you understand what you're building, present the design
-- Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
-- Ask after each section whether it looks right so far
-- Cover: architecture, components, data flow, error handling, testing
-- Be ready to go back and clarify if something doesn't make sense
+- Lead with a one-sentence result, then use meaningful headings.
+- Use **Goal**, **Non-goals**, **Testable requirements**, **Decisions**, and **Acceptance**; omit empty sections.
+- Requirements state observable behavior, exact values, interfaces, and failure behavior where relevant.
+- Keep paragraphs short. Use a comparison table only for repeated, comparable choices; use at most four columns and do not repeat it in prose.
 
 **Design for isolation and clarity:**
 
@@ -242,10 +241,10 @@ is the whole process.
 
 **Documentation:**
 
-- Write the validated design (spec) to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
-  - (User preferences for spec location override this default)
-- Use elements-of-style:writing-clearly-and-concisely skill if available
-- Commit the design document to git
+- Write the validated spec to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` unless the user chose another location, then commit it.
+- Use the structure above. Do not add empty sections, pipe-packed pseudo-tables, or repeated prose and tables.
+- A requested document is not a chat summary: do not truncate a plan, spec, implementation note, or research report to fit a chat-summary cap.
+- A research plan states the **Question**, **Source method**, and **Stop criterion**. A report states the **Answer**, then **Findings** with evidence links, **Implications**, and **Unknowns**; never invent evidence or write a chronological diary.
 
 **Spec Self-Review:**
 After writing the spec document, look at it with fresh eyes:

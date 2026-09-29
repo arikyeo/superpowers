@@ -56,6 +56,8 @@ You MUST complete each phase before proceeding to the next.
    - Note line numbers, file paths, error codes
 
 2. **Reproduce Consistently**
+   - Start with the affected real browser or API user flow on an authorized deployed target; otherwise use runnable local/staging or evidence already recorded
+   - Keep standing production restrictions (no generic suites, no schema, destructive, concurrency or purge checks on production; read-only or expressly authorized seed-QA actions only); do not create a new approval for already authorized safe work
    - Can you trigger it reliably?
    - What are the exact steps?
    - Does it happen every time?
@@ -167,14 +169,16 @@ You MUST complete each phase before proceeding to the next.
 
 ### Phase 4: Implementation
 
+**Scope and deferred findings.** Unsupported possible regressions and vulnerabilities stay outside the current fix. Record an actual deferred finding in the project's existing KIV/backlog document — one concise entry, or a single doc only when none exists — with the hypothesis, available evidence, possible impact and a concrete reopening condition; do not manufacture a speculative findings list or create empty docs. A credible security, money or concurrency defect may still warrant a bounded investigation from a reachable path without a live exploit; missing live reproduction is not by itself an automatic deferral.
+
 **Fix the root cause, not the symptom:**
 
-1. **Create Failing Test Case**
-   - Simplest possible reproduction
-   - Automated test if possible
-   - One-off test script if no framework
-   - MUST have before fixing
-   - Use the `superpowers-extended-cc:test-driven-development` skill for writing proper failing tests
+1. **Establish observed failure or a supported defect — a failing test is not required**
+   - A fix needs an observed failure, a concrete reachable defect, or an explicit requirement
+   - A failing automated reproduction is not a prerequisite for a defect demonstrated by the affected browser/API flow or supported by source evidence
+   - Add the smallest focused automated check only when demonstrated behavior needs durable protection, an explicit gate requires it, or a consequential invariant the live flow cannot establish
+   - Simplest possible reproduction; automated test if one already fits; never theoretical suites, broad edge-case scaffolding or a test-of-test
+   - Use the `superpowers-extended-cc:test-driven-development` skill only when a durable automated check is actually warranted
 
 2. **Implement Single Fix**
    - Address the root cause identified
@@ -182,9 +186,11 @@ You MUST complete each phase before proceeding to the next.
    - No "while I'm here" improvements
    - No bundled refactoring
 
-3. **Verify Fix**
-   - Test passes now?
-   - No other tests broken?
+3. **Verify Fix on the affected flow**
+   - Exercise the affected real browser/API flow again, or the command that demonstrated the failure
+   - An isolated green suite does not establish deployed behavior
+   - Reuse valid observed failures and green evidence; do not replay a known failure
+   - Respect the user's check/command budget and stop-on-green
    - Issue actually resolved?
    - Use the `superpowers-extended-cc:verification-before-completion` skill before claiming success
 
@@ -217,7 +223,7 @@ If you catch yourself thinking:
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
 - "Add multiple changes, run tests"
-- "Skip the test, I'll manually verify"
+- "Skip observing the affected flow, I'll trust the code"
 - "It's probably X, let me fix that"
 - "I don't fully understand but this might work"
 - "Pattern says X but I'll adapt it differently"
@@ -248,7 +254,7 @@ If you catch yourself thinking:
 | "Issue is simple, don't need process" | Simple issues have root causes too. Process is fast for simple bugs. |
 | "Emergency, no time for process" | Systematic debugging is FASTER than guess-and-check thrashing. |
 | "Just try this first, then investigate" | First fix sets the pattern. Do it right from the start. |
-| "I'll write test after confirming fix works" | Untested fixes don't stick. Test first proves it. |
+| "I'll write test after confirming fix works" | The fix still needs an observed failure or a supported defect; a durable automated check is added only when it protects demonstrated behavior |
 | "Multiple fixes at once saves time" | Can't isolate what worked. Causes new bugs. |
 | "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
 | "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
