@@ -196,7 +196,7 @@ No user questions asked. Plan is written and saved.
 **Layer 3 — `/specify-gate 7`:**
 
 Four questions. User answers:
-- **Outcome:** "`sensor.marstek_battery_<suffix>_optimization_status` reads `idle` AND JIT notification fires within 10s of recalculate"
+- **Outcome:** "`sensor.<device>_optimization_status` reads `idle` AND JIT notification fires within 10s of recalculate"
 - **Mechanism:** "Sonnet subagent using `instances/<tag>/seed-briefing.md` as prompt"
 - **Scope:** "one instance per minor version"
 - **Failure:** "reopen the task, do not block the plan"
@@ -210,7 +210,7 @@ HOW is now concrete on all three axes. Dispatch the Sonnet subagent, capture the
 
 ```
 Gate: Task 7 E2E on one instance
-AC: sensor optimization_status = idle — PROVEN BY curl /api/states/sensor.marstek_battery_a3f1_optimization_status → "idle"
+AC: sensor optimization_status = idle — PROVEN BY curl /api/states/sensor.<device>_optimization_status → "idle"
 AC: JIT notification fires within 10s — PROVEN BY notification_message diff, ts delta 5.2s
 ```
 
@@ -238,5 +238,5 @@ All design-doc open items have been delivered:
 
 ### Remaining quality questions (not blocking)
 
-- **`requiresUserSpecification` fire rate:** 0/1 in the single live opus-4.7 session. Step 5 self-check targets this; effectiveness is unverified — needs 2-3 more live sessions with varied vague phrasings to confirm.
-- **Model coverage:** only exercised on Claude Code via Opus 4.7; Sonnet/Haiku behavior untested.
+- **`requiresUserSpecification` fire rate:** barely exercised so far. Step 5 self-check targets this; effectiveness is unverified and needs more sessions with varied vague phrasings to confirm.
+- **Model coverage:** exercised on a frontier model only; Sonnet/Haiku behavior untested.

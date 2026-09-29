@@ -5,13 +5,19 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 
 # Writing Plans
 
+## CRITICAL CONSTRAINTS — Read Before Anything Else
+
+**You MUST NOT call `EnterPlanMode` or `ExitPlanMode` at any point during this skill.** This skill operates in normal mode and manages its own completion flow via `AskUserQuestion`. Calling `EnterPlanMode` traps the session in plan mode where Write/Edit are restricted. Calling `ExitPlanMode` breaks the workflow and skips the user's execution choice. If you feel the urge to call either, STOP — follow this skill's instructions instead.
+
 ## Overview
 
-Write implementation plans for an engineer who has not seen this codebase or this spec. Assume they write idiomatic code in the project's language once they know the exact interface and the exact test, and that they will make a reasonable choice wherever the plan leaves one open. What they cannot know is what you decided: which files, which names and signatures, which values from the spec, which tests prove each task. Document those. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+
+Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
+**Context:** If working in an isolated worktree, it should have been created via the `superpowers-extended-cc:using-git-worktrees` skill at execution time.
 
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
@@ -31,23 +37,32 @@ Before defining tasks, map out which files will be created or modified and what 
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 
-## Task Right-Sizing
+## REQUIRED FIRST STEP: Initialize Task Tracking
 
-A task is the smallest unit that carries its own test cycle and is worth a
-fresh reviewer's gate. When drawing task boundaries: fold setup,
-configuration, scaffolding, and documentation steps into the task whose
-deliverable needs them; split only where a reviewer could meaningfully
-reject one task while approving its neighbor. Each task ends with an
-independently testable deliverable.
+**BEFORE exploring code or writing the plan, you MUST:**
 
-## Step Granularity
+1. Call `TaskList` to check for existing tasks from brainstorming
+2. If tasks exist: you will enhance them with implementation details as you write the plan
+3. If no tasks: you will create them with `TaskCreate` as you write each plan task
 
-**Each step is one action with a checkable result:**
-- "Write the failing test" - step
-- "Run it to make sure it fails" - step
-- "Implement the minimal code to make the test pass" - step
-- "Run the tests and make sure they pass" - step
-- "Commit" - step
+**Do not proceed to exploration until TaskList has been called.** This includes dispatching background or parallel investigation subagents — TaskList is fast and synchronous, so call it FIRST, then fan out any exploration agents.
+
+```
+TaskList
+```
+
+## Task Granularity
+
+**Each task is a coherent unit of work that produces a testable, committable outcome.**
+
+See `skills/shared/task-format-reference.md` for the full granularity guide.
+
+Key principle: TDD cycles happen WITHIN tasks, not as separate tasks. A task is "Implement X with tests" — the red-green-refactor steps are execution detail inside the task, not task boundaries.
+
+**Scope test:**
+1. Can it be verified independently? (if no → too small)
+2. Does it touch more than one concern? (if yes → too big)
+3. Would it get its own commit? (if no → merge with adjacent task)
 
 ## Plan Document Header
 
@@ -56,7 +71,7 @@ independently testable deliverable.
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-extended-cc:subagent-driven-development (recommended) or superpowers-extended-cc:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -69,41 +84,39 @@ argues from the spec, so the spec travels with it; executors read both]
 
 ## Global Constraints
 
-[The spec's project-wide requirements — version floors, dependency limits,
-naming and copy rules, platform requirements — one line each, with exact
-values copied verbatim from the spec. Every task's requirements implicitly
-include this section.]
+[Binding requirements every task must respect — exact values, formats, cross-component relationships ("same layout as X", "matches Y"). Execution controllers hand these to every reviewer. "none" if none.]
 
-## Review Focus
-
-[The five input classes or failure modes the spec implies but no task's
-tests exercise that are most likely to bite a person using this software
-— one line each, naming the input or condition and the behavior a
-reasonable person would expect, most likely first. The spec is a vision
-document: it says what the software must do, not everything it will
-meet, and its silence on an input is not permission for that input to
-break the program. Write the list here, once, with the spec in front of
-you. Then, for each line, add the test that pins it to the task that
-owns the code, in that task's own step style.]
+**User decisions (already made):** [One line per decision the user made during brainstorming/planning, quotable. "none" if none.]
 
 ---
 ```
+
+### Deferred decisions
+
+If the plan schedules questions for the user (a DECIDE list, an AskUserQuestion step), each question MUST:
+- Cite why it is still open despite the header decisions. If a recorded decision answers it, answer from the record — do not re-ask.
+- Carry the facts needed to answer it in the option descriptions: name the artifact AND its role/state (e.g. "stale GitHub mirror, last push 2026-03-25 — separate from your local-tools dev home"), and state what does NOT change under each option.
+- Recommend nothing that contradicts a recorded decision. That is a plan failure (same severity as No Placeholders).
 
 ## Task Structure
 
 ````markdown
 ### Task N: [Component Name]
 
+**Goal:** [One sentence — what this task produces]
+
 **Files:**
 - Create: `exact/path/to/file.py`
 - Modify: `exact/path/to/existing.py:123-145`
 - Test: `tests/exact/path/to/test.py`
 
-**Interfaces:**
-- Consumes: [what this task uses from earlier tasks — exact signatures]
-- Produces: [what later tasks rely on — exact function names, parameter
-  and return types. A task's implementer sees only their own task; this
-  block is how they learn the names and types neighboring tasks use.]
+**Acceptance Criteria:**
+- [ ] [Concrete, testable criterion]
+- [ ] [Another criterion]
+
+**Verify:** `exact test command` → expected output
+
+**Steps:**
 
 - [ ] **Step 1: Write the failing test**
 
@@ -118,11 +131,12 @@ def test_specific_behavior():
 Run: `pytest tests/path/test.py::test_name -v`
 Expected: FAIL with "function not defined"
 
-- [ ] **Step 3: Implement `function(input: InputType) -> ResultType` in `exact/path/to/file.py`**
+- [ ] **Step 3: Write minimal implementation**
 
-One line on the approach when the signature and the test leave a choice
-(which library call, which data structure); a code block only for an
-algorithm they do not determine.
+```python
+def function(input):
+    return expected
+```
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -137,28 +151,15 @@ git commit -m "feat: add specific feature"
 ```
 ````
 
-## What a Step Contains
+## No Placeholders
 
-A step is done when the implementer can write exactly one reasonable thing
-from it. That is the whole requirement: unambiguous, not complete. Each kind
-of step carries what makes it unambiguous and nothing more:
-
-- **A test step:** the test's name and its assertions, as code, with the
-  spec's exact values in them.
-- **A code step:** the exact signature (name, parameters, return type), the
-  file it lives in, and the specific values the spec pins. The implementer
-  writes the body. A body appears only for an algorithm the signature and
-  tests do not determine, or for exact copy the spec fixes.
-- **A verification step:** the command to run and the output that means it
-  passed.
-- **A reference to another task:** that task's Interfaces block says what
-  to use; the plan does not repeat that task's code.
-
-A plan is the set of decisions the implementer cannot make alone. A plan
-longer than the code it describes has written the code instead. Lines that
-decide nothing ("TBD", "handle edge cases", "add appropriate validation",
-"write tests for the above", a type or function no task defines) are the
-opposite failure, and the self-review catches both.
+Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
+- "TBD", "TODO", "implement later", "fill in details"
+- "Add appropriate error handling" / "add validation" / "handle edge cases"
+- "Write tests for the above" (without actual test code)
+- "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
+- Steps that describe what to do without showing how (code blocks required for code steps)
+- References to types, functions, or methods not defined in any task
 
 ## Self-Review
 
@@ -166,39 +167,248 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 
 **1. Spec coverage:** Skim each section/requirement in the spec. Can you point to a task that implements it? List any gaps.
 
-**2. Step scan:** Every step must let the implementer write exactly one reasonable thing, and no step may carry more than that: a line that decides nothing is a gap, a function body the signature and tests already determine is a transcript. Fix both.
+**2. Placeholder scan:** Search your plan for red flags — any of the patterns from the "No Placeholders" section above. Fix them.
 
 **3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
 
-**4. Review Focus:** For each input class or failure mode the spec implies, is there a task whose tests exercise it? The five uncovered ones most likely to bite a person go in the Review Focus section, and each line there gets its test added to the owning task. An empty section means you checked and found none, not that you skipped the check.
-
-**5. Proportion:** Compare the plan's length to the spec's. A plan several times longer than the spec it implements is a transcript of the program, not a plan. If code blocks are most of the document, replace bodies with signatures, test names and assertions, and check that each step is still unambiguous.
-
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
+
+## Gate enforcement note (only when user-gate tasks were tagged AND hooks not yet registered)
+
+If the plan contains any task with `userGate: true`, check whether the user already opted in (scans the three user-editable settings files Claude Code merges — project `settings.local.json` + `settings.json`, and user `~/.claude/settings.json`; missing files silently skipped):
+
+```bash
+cat .claude/settings.local.json .claude/settings.json ~/.claude/settings.json 2>/dev/null | grep -q "post-task-complete-revalidate.sh"
+```
+
+If the pipeline exits 0 (the canonical user-gate hook is registered in any of those files) → **suppress the heads-up entirely**. They already enabled it.
+
+Otherwise, show this short heads-up before the Execution Handoff (substitute {N} and the task numbers):
+
+> Heads up — I tagged {N} task(s) as user-gate (Tasks #X, #Y, …). The plan runs end-to-end as-is. If you'd like automatic close-time enforcement, the JSON snippets are in `README.md` — paste them into `.claude/settings.json` (or `settings.local.json`). Happy to walk you through it; just say the word.
+
+Internal reference (do NOT show): README sections `#force-re-validation-on-user-thrown-gate-close` + `#re-validate-gates-on-plan-complete-claims` in `~/.claude/plugins/marketplaces/superpowers-extended-cc-marketplace/README.md`. Hooks: `hooks/examples/{post-task-complete-revalidate,stop-revalidate-user-gates}.sh`. Design doc: `docs/user-gate-flow.md`.
+
+Suppress entirely if no user-gate tasks were tagged. Do NOT turn this into an `AskUserQuestion`.
 
 ## Execution Handoff
 
-After saving and self-reviewing the plan, link it for your human partner
-to read. If they have already explicitly supplied an execution method, ask
-them to review the plan and confirm it captures what they want; wait for that
-review before implementation, then use the preserved method. Otherwise, ask
-them to review the plan and choose an execution method before implementation.
+<HARD-GATE>
+STOP. You are about to complete the plan. DO NOT call EnterPlanMode or ExitPlanMode. You MUST call AskUserQuestion below. Both are FORBIDDEN — EnterPlanMode traps the session, ExitPlanMode skips the user's execution choice.
+</HARD-GATE>
 
-**When no execution method has already been supplied:**
+Your ONLY permitted next action is calling `AskUserQuestion` with this EXACT structure:
 
-**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Which execution approach would you prefer?**
+```yaml
+AskUserQuestion:
+  question: "Plan complete and saved to docs/superpowers/plans/<filename>.md. How would you like to execute it?"
+  header: "Execution"
+  options:
+    - label: "Subagent-Driven (this session)"
+      description: "Runs here: fresh subagent per task, spec and quality review after every task. That review loop is what the other option gives up. Good default."
+    - label: "Parallel Session (separate)"
+      description: "You open a second session that runs executing-plans WITHOUT the per-task review loop, while this one stays alive to answer its questions. Choose it when this session is nearly out of context, or when the plan has no frontier tasks and a cheaper model should do the work."
+```
 
-- **Subagent-driven** - A fresh subagent implements each task and a fresh reviewer checks it before the next one starts, then a whole-branch review at the end. Most thorough; costs a fresh context per task and per review.
-- **Native** - I implement every task myself in this session, the way this harness runs work, then one fresh reviewer on the most capable model checks the whole branch. Cheapest and fastest; no independent review until the end. Runs well with a mid-tier session model, since the plan carries the design.
+**Recommend one option:** append " (Recommended)" to the better fit's label (list it first) and prepend a one-line reason to its description. Default Subagent-Driven — the review loop is the point. Recommend Parallel Session only for a nearly-exhausted session; task count alone is never the reason. Cost is your human partner's reason, not yours: name it in the description, never in the recommendation. On a Fable/Opus session with no frontier tasks, add to the Parallel description which cheaper model fits (e.g. Sonnet); with frontier tasks, say which task needs the stronger model so the partner can split the run. Never reword the base labels.
 
-**For this plan I recommend <one of the two>, because <one sentence from the plan: how much the tasks depend on each other's interfaces, how many there are, what a shipped mistake would cost>. Does the plan capture what you want, and which approach should we use?"**
+**If you are about to call ExitPlanMode, STOP — call AskUserQuestion instead.**
 
-**When an execution method has already been supplied:**
+<HARD-GATE>
+STOP. The user has chosen an execution method. You MUST invoke the corresponding skill using the Skill tool NOW. Do NOT implement tasks yourself — do NOT read files, make edits, or update task statuses. Your ONLY permitted action is invoking the skill below.
 
-**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Does it capture what you want?"**
+**If Subagent-Driven chosen:**
+Invoke the Skill tool: `superpowers-extended-cc:subagent-driven-development`
+- The skill handles everything: subagent dispatch, review, task tracking
+- You stay in this session as the coordinator
+- Do NOT start working on tasks directly
 
-**If Subagent-driven chosen:**
-- **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
+**If Parallel Session chosen:**
+Give the user this exact prompt to paste into a NEW session opened in the worktree, with the placeholders filled in. Put it in a fenced code block that holds the prompt and nothing else — the fence is what tells your human partner where the copy starts and stops. Model advice and notes go after the fence, never inside it:
 
-**If Native chosen:**
-- **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
+```text
+Invoke superpowers-extended-cc:executing-plans for <plan path>. The plan author session "<this session's title>" is still running. On any ambiguity or design question, find it with ListAgents and ask it via SendMessage before guessing.
+```
+
+A bare "run executing-plans" prompt loses the consultation link — the new session cannot know its author exists unless the prompt names it. On a Fable/Opus session with no frontier tasks, add one line: open it on a cheaper model (e.g. Sonnet). Keep this session alive to answer questions.
+</HARD-GATE>
+
+---
+
+## Native Task Integration Reference
+
+Use Claude Code's native task tools (v2.1.16+) to create structured tasks alongside the plan document.
+
+### Creating Native Tasks
+
+For each task in the plan, create a corresponding native task. Embed metadata as a `json:metadata` code fence at the end of the description — this is the only way to ensure metadata survives TaskGet (the `metadata` parameter on TaskCreate is accepted but not returned by TaskGet).
+
+#### User-Thrown Gates — Mechanical Detection + Tagging
+
+You MUST run this check for EVERY task you create. It takes seconds and is the cheapest part of the whole user-gate flow.
+
+**Step 1 — Scan for gate-language.** For each of these, search the user's brief AND the task's Goal/Acceptance Criteria, case-insensitive, whole-word where reasonable:
+
+| Bucket | Keywords / patterns |
+|--------|---------------------|
+| Verbs | `verify`, `prove`, `validate`, `confirm`, `ensure`, `check`, `gate` |
+| Nouns | `verification gate`, `acceptance test`, `smoke test`, `end-to-end`, `E2E` |
+| Scope | `first on one`, `then all`, `one before the rest`, `before proceeding`, `don't continue until` |
+| Proof | `prove it works`, `make sure`, `demonstrate`, `show that` |
+
+**Trigger rule** — a task is a user-thrown gate ONLY if:
+- a **Nouns** match is found (these phrases are unambiguous gate nouns), OR
+- a **Scope** match is found (commitment to ordering is a gate by itself), OR
+- a **Verbs** match co-occurs with EITHER a Scope or a Proof match.
+
+A **Verbs** match ALONE is not enough. Normal work briefs routinely say "validate the output" or "check that imports work" without asking for a gate. If the user wanted a gate, they committed to ordering ("do X before Y", "first on one"), named the artifact ("smoke test", "acceptance test"), or demanded proof ("prove it works", "show that"). One of those MUST be present in addition to the verb.
+
+If no bucket matches, or only Verbs match → regular task, no tagging needed.
+
+**Step 2 — Tag the task.** In the task's `json:metadata` fence:
+
+1. Set `"userGate": true`.
+2. Append `"user-gate"` to the `tags` array (create the array if absent).
+3. If the user's brief specified the HOW concretely (named a command, entity, subagent, or observable), put it straight into `verifyCommand` and `acceptanceCriteria` — done.
+4. If HOW is vague, set `"requiresUserSpecification": true` **only** when the verification sentence names no testable noun (function, command, entity, endpoint, file, log pattern) AND no concrete value (expected result, threshold, example input/output). One foothold — e.g. "verify each op with real inputs" — is enough for the agent to self-solve. The flag is for pure adjectives ("solid", "works", "good", "proper") where any guess is a shot in the dark.
+
+**Step 3 — Add the prose banner** (mandatory whenever `userGate: true`). Near the top of the task description, right under **Goal:**, include verbatim:
+
+> **USER-ORDERED GATE — NON-SKIPPABLE.** This task was requested by the user in the current conversation. It MUST NOT be closed by walking around it, by declaring it "verified inline", or by substituting a cheaper check. Close only after every item in `acceptanceCriteria` has been re-validated independently, with output captured.
+
+- **A clearly-directed verification is SETTLED, not a menu.** If the user named a concrete live fixture (a real MR/branch/ticket/endpoint) as the verification, encode it as REQUIRED: put the live invocation in `verifyCommand`, and make every `requireEvidenceTokens` axis (e.g. green/red) provable ONLY by the live run's captured output. A dry/paper trace MUST NOT appear as an acceptance criterion or an alternate close path — the plan fixes the approach so execution cannot downgrade it.
+
+**Tasks with declared evidence axes — set `requireEvidenceTokens`.** When a task's close is meaningful only if the coordinator has actually observed two (or more) labeled states, declare the axes in metadata. The `post-task-complete-revalidate` hook refuses the close unless at least one token from each axis appears in the close window. Examples:
+
+- **Empirical refactor / A/B:** either explicit (`"requireEvidenceTokens": [["baseline","old","iter-0"], ["refactored","new","iter-1"]]`) or shortcut (`"requireABCompare": true`).
+- **v2→v3 migration verification:** `"requireEvidenceTokens": [["v2","legacy"], ["v3","migrated"]]`.
+- **Perf before/after:** `[["slow","unoptimized","p50=X"], ["fast","optimized","p50=Y"]]` — include the literal metric tags you expect the coordinator to post.
+- **Multi-arm experiment:** `[["control"], ["variant-a"], ["variant-b"]]` — any number of axes.
+- **Security pre/post fix:** `[["vulnerable","CVE-","before-patch"], ["patched","after-patch","hardened"]]`.
+
+Without the axes, "looks good, keep going" closes are legal; with axes, the coordinator must produce evidence from each declared side. Pair with a concrete `verifyCommand` that actually runs both sides when possible (e.g. `diff <(old-cmd) <(new-cmd)`).
+
+**Banner ↔ metadata invariant — both paths must agree.** The banner goes inside the SAME TaskCreate `description` string as the `json:metadata` fence, not only in the plan `.md`. If you are writing both a plan document AND creating native tasks, the banner must appear in BOTH places for the same task, OR in NEITHER. Self-check before moving on: for each task, the plan doc section and the TaskCreate description must both either have `userGate: true` + banner + fence, or have none of them.
+
+**Step 4 — Check acceptance criteria operational specificity.** Each criterion MUST name an observable. Vague ("integration works", "it passes") is not acceptable — rewrite to "sensor X reports idle", "HTTP 200 from `/health`", "setup.done file present", etc. If you cannot make a criterion operational, set `requiresUserSpecification: true` and let `/specify-gate` collect the real answer.
+
+**Step 5 — Per-task isolation self-check.** For every task where you set `userGate: true` and DIDN'T set `requiresUserSpecification: true`, re-read ONLY that task's **Goal** sentence in isolation — pretend no other task exists. Does that sentence alone name an observable, a capture method, AND a pass/fail value? If no to any of the three, set `requiresUserSpecification: true` even if you already filled in a `verifyCommand` from context. Borrowing concreteness from sibling tasks is the failure mode this catches. Example: a plan with per-op tasks saying "verify add(3,2)==5" (concrete) and a final task saying "make sure the whole thing works" (vague) — the per-op tasks anchor; the final task fails this check and MUST carry `requiresUserSpecification: true`.
+
+**Tag liberally when a real gate signal is present.** The three shades of gate (strict user gate / strict agent gate / gray in-between) all get the same tag — if the trigger rule above matches, err on the side of tagging. But do not read a gate into normal verbs: "validate", "check", "verify" on their own describe routine work, not user-thrown gates. Over-tagging on real signals is harmless (extra metadata). Over-tagging on bare verbs produces the banner flood that makes every task look high-ceremony and drowns the real gates.
+
+**Do NOT ask the user questions during write-plan.** The opinionated default is "tag it and move on". Users who wanted questions said "brainstorm". If the user's brief is vague about a gate's HOW, the flag `requiresUserSpecification: true` routes the question to execute time where `/specify-gate` handles it in 3-5 short multiple-choice prompts.
+
+See `skills/shared/task-format-reference.md` → "User-Thrown Gates" for the full metadata schema with all six gate-related keys (`userGate`, `tags`, `requiresUserSpecification`, `gateScope`, `failurePolicy`, `subagentBrief`), and `docs/user-gate-flow.md` for the end-to-end flow.
+
+#### TaskCreate description — full structured body, not a summary
+
+**Hard rule.** Every TaskCreate `description` MUST contain, verbatim, the same **Goal / Files / Acceptance Criteria / Verify** sections you wrote into the plan `.md` for that task. Do NOT condense into a one-sentence summary. Do NOT move the AC to "see the plan doc". Do NOT omit `**Verify:**`. The description MUST end with the `json:metadata` code fence.
+
+**Why it matters.** Both execution paths (`executing-plans` and `subagent-driven-development`) read the task description via TaskGet and pass it to the implementing subagent. A one-sentence description makes the subagent improvise AC. The plan `.md` is not a fallback — TaskGet does not read it.
+
+**Self-check before finishing the skill.** This is a mechanical count, not a read-and-confirm — a prose pass can be rubber-stamped, a count can't. For each of the four section headers (`**Goal:**`, `**Files:**`, `**Acceptance Criteria:**`, `**Verify:**`), run `grep -c` over `<plan>.tasks.json`:
+
+```bash
+grep -c '\*\*Goal:\*\*' <plan>.tasks.json
+grep -c '\*\*Files:\*\*' <plan>.tasks.json
+grep -c '\*\*Acceptance Criteria:\*\*' <plan>.tasks.json
+grep -c '\*\*Verify:\*\*' <plan>.tasks.json
+```
+
+Each count MUST equal the number of tasks. If any count is lower → a task dropped that section; TaskUpdate it to the full block BEFORE the Execution Handoff. Also confirm the `json:metadata` fence is present in every task. Fall back to per-task TaskGet only if the tasks file is missing.
+
+**Keep subjects compact.** The harness re-injects every task's subject line into context on periodic reminders, so subjects are paid for repeatedly — aim for ≤ 60 characters and put detail in the description.
+
+```yaml
+TaskCreate:
+  subject: "Task N: [Component Name]"
+  description: |
+    **Goal:** [From task's Goal line]
+
+    **Files:**
+    [From task's Files section]
+
+    **Acceptance Criteria:**
+    [From task's Acceptance Criteria]
+
+    **Verify:** [From task's Verify line]
+
+    ```json:metadata
+    {"files": ["path/to/file1.py"], "verifyCommand": "pytest tests/path/ -v", "acceptanceCriteria": ["criterion 1", "criterion 2"], "modelTier": "mechanical"}
+    ```
+  activeForm: "Implementing [Component Name]"
+```
+
+### Why Embedded Metadata
+
+The `metadata` parameter on TaskCreate is accepted but **not returned by TaskGet**. Embedding it as a `json:metadata` code fence in the description ensures:
+- TaskGet returns the full metadata (it's part of the description)
+- Cross-session resume can parse it from .tasks.json
+- Subagent dispatch can extract it for implementer prompts
+
+See `skills/shared/task-format-reference.md` for the full metadata schema.
+
+### Setting Dependencies
+
+After all tasks created, set blockedBy relationships:
+
+```
+TaskUpdate:
+  taskId: [task-id]
+  addBlockedBy: [prerequisite-task-ids]
+```
+
+### During Execution
+
+Update task status as work progresses:
+
+```
+TaskUpdate:
+  taskId: [task-id]
+  status: in_progress  # when starting
+
+TaskUpdate:
+  taskId: [task-id]
+  status: completed    # when done
+```
+
+---
+
+## Task Persistence
+
+At plan completion, write the task persistence file **in the same directory as the plan document**.
+
+If the plan is saved to `docs/superpowers/plans/2026-01-15-feature.md`, the tasks file MUST be saved to `docs/superpowers/plans/2026-01-15-feature.md.tasks.json`.
+
+```json
+{
+  "planPath": "docs/superpowers/plans/2026-01-15-feature.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 0: ...",
+      "status": "pending",
+      "description": "**Goal:** ...\n\n**Files:**\n...\n\n```json:metadata\n{\"files\": [\"path/to/file.py\"], \"verifyCommand\": \"pytest tests/ -v\", \"acceptanceCriteria\": [\"criterion 1\"], \"modelTier\": \"mechanical\"}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 1: ...",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** ...\n\n```json:metadata\n{\"files\": [], \"verifyCommand\": \"\", \"acceptanceCriteria\": [], \"modelTier\": \"standard\"}\n```"
+    }
+  ],
+  "lastUpdated": "<timestamp>"
+}
+```
+
+Both the plan `.md` and `.tasks.json` must be co-located in `docs/superpowers/plans/`.
+
+### Resuming Work
+
+Any new session can resume by running:
+```
+/superpowers-extended-cc:executing-plans <plan-path>
+```
+
+The skill reads the `.tasks.json` file and continues from where it left off.

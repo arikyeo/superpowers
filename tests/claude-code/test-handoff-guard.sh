@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test: pre-askuser-handoff-guard hook — synthetic transcripts, no LLM.
 # Covers all decision branches: armed via Skill tool_use, armed via user-message
-# invocation (live failure mode — content as string AND as text-block list),
+# invocation (content as string AND as text-block list),
 # compliant two-option handoff → allow, wrong options → block, CLARIFICATION
 # token → allow, disarmed by later execution Skill → allow, prior compliant
 # handoff → allow, no TaskCreate after arm → allow, no routing file → allow,
@@ -76,7 +76,7 @@ cat > "$WORK/armed-via-skill.jsonl" <<'EOF'
 EOF
 
 # Transcript: writing-plans invoked via user message (slash command injection) — content as string.
-# This is the live failure mode from session 2013ea56.
+# This is the failure mode the gate exists to catch.
 cat > "$WORK/armed-via-user-string.jsonl" <<'EOF'
 {"type":"user","message":{"content":"superpowers-extended-cc:writing-plans skill"}}
 {"type":"assistant","message":{"content":[{"type":"tool_use","name":"TaskCreate","input":{"subject":"Task 1","description":"**Goal:** do thing\n```json:metadata\n{\"modelTier\":\"mechanical\"}\n```"}}]}}
@@ -175,7 +175,7 @@ print(json.dumps(inp))
 " "$transcript" "$cwd"
 }
 
-# Wrong options (improvised custom menu — the live failure pattern).
+# Wrong options (improvised custom menu — the pattern this gate catches).
 make_wrong_options_input() {
     local transcript="$1" cwd="${2:-$WORK/project}"
     python3 -c "
@@ -306,7 +306,7 @@ rc=$(run_hook "$INPUT")
 assert "exit code" "0" "$rc"
 echo ""
 
-echo "Test 10: armed via user-message string (live failure mode) + wrong options → BLOCK"
+echo "Test 10: armed via user-message string + wrong options → BLOCK"
 INPUT=$(make_wrong_options_input "$WORK/armed-via-user-string.jsonl")
 rc=$(run_hook "$INPUT")
 assert "exit code" "2" "$rc"
@@ -419,6 +419,142 @@ INPUT=$(make_wrong_options_input "$WORK/armed-via-skill.jsonl")
 _rc=0
 env HOME="$ISOLATED_HOME" /bin/bash "$HOOK" >/dev/null 2>"$WORK/stderr" <<< "$INPUT" && _rc=$? || _rc=$?
 assert "armed wrong-menu blocks under /bin/bash" "2" "$_rc"
+echo ""
+
+echo "Test 22: recommendation direction vs measured context usage"
+# The last assistant entry's usage (input + cache tokens) is the measured
+# context size. Window defaults to 200000; 140k => 70%, 10k => 5%.
+make_usage_transcript() { # $1=out-file $2=total-tokens
+    cat "$WORK/armed-via-skill.jsonl" > "$1"
+    python3 -c "
+import json, sys
+entry = {'type': 'assistant', 'message': {'usage': {'input_tokens': 1000, 'cache_read_input_tokens': int(sys.argv[2]) - 1000, 'cache_creation_input_tokens': 0}, 'content': [{'type': 'text', 'text': 'Skill note'}]}}
+open(sys.argv[1], 'a').write(json.dumps(entry) + '\n')
+" "$1" "$2"
+}
+make_recommended_input() { # $1=transcript $2=which(subagent|parallel)
+    python3 -c "
+import json, sys
+which = sys.argv[3]
+sub = 'Subagent-Driven (this session)' + (' (Recommended)' if which == 'subagent' else '')
+par = 'Parallel Session (separate)' + (' (Recommended)' if which == 'parallel' else '')
+inp = {
+    'tool_name': 'AskUserQuestion',
+    'tool_input': {'questions': [{
+        'question': 'Plan complete and saved to docs/superpowers/plans/2026-06-10-foo.md. How would you like to execute it?',
+        'header': 'Execution',
+        'options': [{'label': sub, 'description': 'd'}, {'label': par, 'description': 'd'}]}]},
+    'transcript_path': sys.argv[1],
+    'cwd': sys.argv[2]
+}
+print(json.dumps(inp))
+" "$1" "$WORK/project" "$2"
+}
+make_usage_transcript "$WORK/armed-high-usage.jsonl" 140000
+make_usage_transcript "$WORK/armed-low-usage.jsonl" 10000
+# A percentage needs a proven window; an auto-compact at <=200k proves 200k.
+prove_200k() { # $1=transcript
+    echo '{"type": "system", "subtype": "compact_boundary", "compactMetadata": {"trigger": "auto", "preTokens": 168000}}' >> "$1"
+}
+cp "$WORK/armed-high-usage.jsonl" "$WORK/armed-high-unproven.jsonl"
+prove_200k "$WORK/armed-high-usage.jsonl"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-high-usage.jsonl" subagent)")
+assert "70% used + Subagent recommended → block" "2" "$rc"
+assert_stderr_contains "block cites measured percentage" "70%"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-high-usage.jsonl" parallel)")
+assert "70% used + Parallel recommended → allow" "0" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-low-usage.jsonl" parallel)")
+assert "5% used + Parallel recommended → block" "2" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-low-usage.jsonl" subagent)")
+assert "5% used + Subagent recommended → allow" "0" "$rc"
+rc=$(run_hook "$(make_compliant_input "$WORK/armed-high-usage.jsonl")")
+assert "70% used + no (Recommended) marker → allow (fail-open)" "0" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-via-skill.jsonl" subagent)")
+assert "no usage data + Subagent recommended → allow (fail-open)" "0" "$rc"
+echo ""
+
+echo "Test 23: skill-body injection after arm must NOT disarm"
+# Live miss (2026-09-12): invoking writing-plans injects its body as a user
+# message beginning "Base directory for this skill:"; that body names
+# executing-plans in its handoff section, which the scan took as a disarm
+# signal one line after the arm. The guard then slept through the real handoff.
+python3 -c "
+import json, sys
+body = 'Base directory for this skill: /x/skills/writing-plans\n\n## Execution Handoff\nInvoke the Skill tool: superpowers-extended-cc:subagent-driven-development ... Invoke superpowers-extended-cc:executing-plans for the plan path.'
+lines = [
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'superpowers-extended-cc:writing-plans'}}]}},
+    {'type': 'user', 'message': {'content': [{'type': 'text', 'text': body}]}},
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'TaskCreate', 'input': {'subject': 'Task 1', 'description': 'goal'}}]}},
+]
+with open(sys.argv[1], 'w') as f:
+    for l in lines:
+        f.write(json.dumps(l) + '\n')
+" "$WORK/skill-body-after-arm.jsonl"
+INPUT=$(make_wrong_options_input "$WORK/skill-body-after-arm.jsonl")
+rc=$(run_hook "$INPUT")
+assert "skill body mention does not disarm → wrong menu blocks" "2" "$rc"
+# A human instruction that names the execution skill late in a long message
+# is still an invocation and must disarm (the skip is for skill bodies only).
+python3 -c "
+import json, sys
+doc = 'Some context about the plan first. ' * 12 + 'Now run superpowers-extended-cc:executing-plans on it instead.'
+lines = [
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'Skill', 'input': {'skill': 'superpowers-extended-cc:writing-plans'}}]}},
+    {'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'name': 'TaskCreate', 'input': {'subject': 'Task 1', 'description': 'goal'}}]}},
+    {'type': 'user', 'message': {'content': doc}},
+]
+with open(sys.argv[1], 'w') as f:
+    for l in lines:
+        f.write(json.dumps(l) + '\n')
+" "$WORK/late-human-invocation.jsonl"
+INPUT=$(make_wrong_options_input "$WORK/late-human-invocation.jsonl")
+rc=$(run_hook "$INPUT")
+assert "late invocation in a long human message still disarms → allow" "0" "$rc"
+# A real invocation at the head of a user message still disarms.
+INPUT=$(make_wrong_options_input "$WORK/disarmed-by-execution.jsonl")
+rc=$(run_hook "$INPUT")
+assert "execution Skill invocation still disarms → allow" "0" "$rc"
+echo ""
+
+echo "Test 24: measured usage above 200k proves a 1M window"
+# 462k measured (live Fable 1M handoff) is 46% of 1M, not 231% of 200k.
+make_usage_transcript "$WORK/armed-1m-usage.jsonl" 462000
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-1m-usage.jsonl" subagent)")
+assert "462k used + Subagent recommended → allow (46% of 1M)" "0" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-1m-usage.jsonl" parallel)")
+assert "462k used + Parallel recommended → block (46% of 1M)" "2" "$rc"
+assert_stderr_contains "block cites promoted window" "1000000-token window"
+make_usage_transcript "$WORK/armed-1m-high.jsonl" 700000
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-1m-high.jsonl" subagent)")
+assert "700k used + Subagent recommended → block (70% of 1M)" "2" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-1m-usage.jsonl" parallel)" SUPERPOWERS_CONTEXT_WINDOW=500000)
+assert "explicit window is never promoted (462k/500k=92%, Parallel ok)" "0" "$rc"
+echo ""
+
+echo "Test 25: unproven window only blocks when the 200k and 1M readings agree"
+# Live miss (2026-09-18): 196k on a 1M session read as 98% of 200k; the guard
+# forced a Parallel recommendation and the model then refused to edit its own
+# plan file, citing the number. Nothing in that transcript proved the window.
+make_usage_transcript "$WORK/armed-196k-unproven.jsonl" 196000
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-196k-unproven.jsonl" subagent)")
+assert "196k, window unproven + Subagent recommended → allow" "0" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-high-unproven.jsonl" subagent)")
+assert "140k, window unproven + Subagent recommended → allow" "0" "$rc"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-low-usage.jsonl" parallel)")
+assert "10k, window unproven + Parallel recommended → block (low on either window)" "2" "$rc"
+assert_stderr_contains "unproven block does not assert a window" "at most 5%"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-196k-unproven.jsonl" subagent)" SUPERPOWERS_CONTEXT_WINDOW=200000)
+assert "196k + explicit 200k window + Subagent recommended → block" "2" "$rc"
+# An earlier peak above 200k keeps proving 1M after a compaction dropped usage.
+make_usage_transcript "$WORK/armed-1m-then-low.jsonl" 462000
+python3 -c "
+import json, sys
+entry = {'type': 'assistant', 'message': {'usage': {'input_tokens': 150000}, 'content': [{'type': 'text', 'text': 'after compact'}]}}
+open(sys.argv[1], 'a').write(json.dumps(entry) + '\n')
+" "$WORK/armed-1m-then-low.jsonl"
+rc=$(run_hook "$(make_recommended_input "$WORK/armed-1m-then-low.jsonl" parallel)")
+assert "150k after a 462k peak + Parallel recommended → block (15% of 1M)" "2" "$rc"
+assert_stderr_contains "peak keeps the 1M window" "1000000-token window"
 echo ""
 
 echo "=== Summary: $FAILED failure(s) ==="

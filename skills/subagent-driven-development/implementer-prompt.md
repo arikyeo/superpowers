@@ -3,17 +3,25 @@
 Use this template when dispatching an implementer subagent.
 
 ```
-Subagent (general-purpose):
+Task tool (general-purpose):
   description: "Implement Task N: [task name]"
-  model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
-         model silently inherits the session's most expensive one]
   prompt: |
     You are implementing Task N: [task name]
 
     ## Task Description
 
-    Read your task brief first: [BRIEF_FILE]
-    It contains the full task text from the plan.
+    **Goal:** [from task description or metadata]
+
+    **Files:**
+    [from task metadata.files or description Files section]
+
+    **Acceptance Criteria:**
+    [from task metadata.acceptanceCriteria or description]
+
+    **Verify:** [from task metadata.verifyCommand or description]
+
+    **Steps:**
+    [from task description Steps section]
 
     ## Context
 
@@ -112,7 +120,6 @@ Subagent (general-purpose):
     - Do tests actually verify behavior (not just mock behavior)?
     - Did I follow TDD if required?
     - Are tests comprehensive?
-    - Is the test output pristine (no stray warnings or noise)?
 
     If you find issues during self-review, fix them now before reporting.
 
@@ -125,28 +132,29 @@ Subagent (general-purpose):
     you — your report is the test evidence. Then reply with the same short
     status contract as your first report.
 
+    Each fix report is a DELTA, not a cumulative account. Paste output only
+    for the tests covering this round's changes; never re-paste a full
+    suite run whose earlier lines already appear in the report, and never
+    re-verify a result that did not change — one line ("ranking unchanged
+    since round 2") covers it. What you tried and reverted IS worth
+    recording — that history is what a future implementer needs. Proposals
+    for work you did not do this round are not: if something seems worth
+    doing later, one line under concerns is the ceiling. Every reviewer
+    after you must read everything you append.
+
     ## Report Format
 
-    Write your full report to [REPORT_FILE]:
+    When done, report:
+    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
     - What you implemented (or what you attempted, if blocked)
+    - **Files changed:** [list actual files]
+    - **Acceptance criteria status:**
+      - [criterion 1]: PASS/FAIL
+      - [criterion 2]: PASS/FAIL
+    - **Verify command output:** [paste actual output of verify command]
     - What you tested and test results
-    - **TDD Evidence** (if TDD was required for this task):
-      - RED: command run, relevant failing output before implementation, and why the failure was expected
-      - GREEN: command run and relevant passing output after implementation
-    - Files changed
     - Self-review findings (if any)
     - Any issues or concerns
-
-    Then report back with ONLY (under 15 lines — the detail lives in the
-    report file):
-    - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
-    - Commits created (short SHA + subject)
-    - One-line test summary (e.g. "14/14 passing, output pristine")
-    - Your concerns, if any
-    - The report file path
-
-    If BLOCKED or NEEDS_CONTEXT, put the specifics in the final message
-    itself — the controller acts on it directly.
 
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need

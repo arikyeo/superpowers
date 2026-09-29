@@ -11,8 +11,8 @@
 #
 # Agents under load frequently improvise a custom phased menu instead — bypassing the
 # execution-method choice and skipping the subagent pipeline (where model routing operates).
-# The live failure that motivated this gate: session 2013ea56 wrote a 19-task plan, produced
-# a custom four-option menu, and the subagent pipeline never engaged.
+# The failure this gate prevents: a long plan ends in a custom multi-option menu
+# instead of the handoff choice, and the subagent pipeline never engages.
 #
 # Decision order:
 #   1. SUPERPOWERS_ROUTING_GUARD=0 → allow.
@@ -191,6 +191,17 @@ with f:
             raw_content = msg.get("content", "")
             text = extract_text(raw_content)
 
+            # A Skill invocation injects the skill BODY as a user message that starts
+            # with "Base directory for this skill:". The body of writing-plans names
+            # executing-plans and subagent-driven-development in its handoff section,
+            # so scanning it disarmed the guard right after it armed (live: plan
+            # session 2026-09-12, trace "not-armed | arm_pos=704" at the real
+            # handoff). A skill body is a mention, not an invocation; every other
+            # user message keeps the full-text scan so a human instruction that
+            # names the skill late in a long message still counts.
+            if text.lstrip().startswith("Base directory for this skill:"):
+                continue
+
             # writing-plans arm via user message (slash command injection pattern)
             if "superpowers-extended-cc:writing-plans" in text or "superpowers-extended-cc:write-plan" in text:
                 arm_pos = pos
@@ -237,7 +248,119 @@ while IFS= read -r lbl; do
 done <<< "$OPTIONS_LABELS"
 
 if [[ "$HAS_SUBAGENT" == "1" && "$HAS_PARALLEL" == "1" ]]; then
-    trace "?" "handoff-compliant" "both required labels present"
+    # Structure is compliant — now police the RECOMMENDATION DIRECTION against
+    # measured context usage. Agents cannot reliably self-read their context
+    # (observed: 4.8% real reported as ~0.4%), so the number comes from the
+    # transcript: the last assistant entry's usage (input + cache tokens) IS
+    # the current context size. Fail-open on any measurement gap.
+    # Window: a PreToolUse hook is never told the window, and a 1M-context
+    # session (Opus/Fable "[1m]") is indistinguishable by model id. So the
+    # window is only KNOWN when something proves it:
+    #   - SUPERPOWERS_CONTEXT_WINDOW is set (explicit, never overridden), or
+    #   - any usage in the transcript exceeds 200k: impossible inside a 200k
+    #     window, so 1M (live: 462k measured read as 231%), or
+    #   - an auto-compact fired at <=200k: a 1M window compacts near 967k, so 200k.
+    # Unproven, the same token count means two things (live 2026-09-18: 196k
+    # on a 1M session read as "98%", forced a Parallel recommendation, and the
+    # model then refused to edit its own plan file on the strength of that
+    # number). An unproven window therefore only blocks when the 200k and the
+    # 1M reading agree, which is never the case for a Subagent recommendation.
+    CTX_WINDOW_SET="${SUPERPOWERS_CONTEXT_WINDOW:+1}"
+    CTX_WINDOW="${SUPERPOWERS_CONTEXT_WINDOW:-200000}"
+    CTX_PCT_LIMIT="${SUPERPOWERS_HANDOFF_CTX_PCT:-60}"
+    CTX_MEASURE=$(python3 - "$TRANSCRIPT_PATH" "$CTX_WINDOW" "${CTX_WINDOW_SET:-0}" 2>/dev/null <<'PYEOF'
+import json, sys
+path, window, known = sys.argv[1], int(sys.argv[2]), sys.argv[3] == "1"
+try:
+    f = open(path, "rb")
+except Exception:
+    sys.exit(0)
+last = None
+peak = 0
+compacted_small = False
+with f:
+    for line in f:
+        if b'"usage"' not in line and b'compact' not in line:
+            continue
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+        if e.get("type") == "assistant":
+            u = (e.get("message") or {}).get("usage") or {}
+            total = sum(int(u.get(k) or 0) for k in
+                        ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+            if total > 0:
+                last = total
+                peak = max(peak, total)
+        elif e.get("subtype") == "compact_boundary":
+            meta = e.get("compactMetadata") or {}
+            pre = int(meta.get("preTokens") or 0)
+            if meta.get("trigger") == "auto" and 0 < pre <= 200000:
+                compacted_small = True
+if last is not None and window > 0:
+    if not known:
+        if peak > 200000:
+            window, known = 1000000, True
+        elif compacted_small:
+            known = True
+    print("%d %d %d" % (round(last * 100 / window), window, 1 if known else 0))
+PYEOF
+    ) || CTX_MEASURE=""
+    CTX_PCT=""; CTX_KNOWN=1
+    [[ -n "$CTX_MEASURE" ]] && read -r CTX_PCT CTX_WINDOW CTX_KNOWN <<< "$CTX_MEASURE"
+    RECOMMENDED=""
+    while IFS= read -r lbl; do
+        case "$lbl" in
+            *Recommended*Subagent-Driven*|*Subagent-Driven*Recommended*) RECOMMENDED="subagent" ;;
+            *Recommended*Parallel*|*Parallel*Recommended*) RECOMMENDED="parallel" ;;
+        esac
+    done <<< "$OPTIONS_LABELS"
+    if [[ -n "$CTX_PCT" && -n "$RECOMMENDED" ]]; then
+        if [[ "$RECOMMENDED" == "subagent" && "$CTX_PCT" -ge "$CTX_PCT_LIMIT" && "$CTX_KNOWN" != "1" ]]; then
+            trace "?" "handoff-compliant" "window unproven, ctx=${CTX_PCT}% of 200k or less of 1M, rec=subagent"
+            echo "$ALLOW"; exit 0
+        fi
+        if [[ "$RECOMMENDED" == "subagent" && "$CTX_PCT" -ge "$CTX_PCT_LIMIT" ]]; then
+            trace "?" "block" "ctx=${CTX_PCT}% >= ${CTX_PCT_LIMIT}%, subagent recommended"
+            {
+                echo "HANDOFF RECOMMENDATION CONTRADICTS MEASURED CONTEXT"
+                echo ""
+                echo "Measured context usage: ${CTX_PCT}% of the ${CTX_WINDOW}-token window (from the"
+                echo "transcript's own usage data — not an estimate). At >=${CTX_PCT_LIMIT}% this session is"
+                echo "too full to coordinate subagent execution reliably."
+                echo ""
+                echo "Re-issue the same AskUserQuestion with \" (Recommended)\" on Parallel Session"
+                echo "and cite ${CTX_PCT}% in its reason line."
+                echo "Window override: SUPERPOWERS_CONTEXT_WINDOW; threshold: SUPERPOWERS_HANDOFF_CTX_PCT."
+            } >&2
+            exit 2
+        fi
+        if [[ "$RECOMMENDED" == "parallel" && "$CTX_PCT" -lt "$CTX_PCT_LIMIT" ]]; then
+            trace "?" "block" "ctx=${CTX_PCT}% < ${CTX_PCT_LIMIT}%, parallel recommended"
+            {
+                echo "HANDOFF RECOMMENDATION CONTRADICTS MEASURED CONTEXT"
+                echo ""
+                if [[ "$CTX_KNOWN" == "1" ]]; then
+                    echo "Measured context usage: ${CTX_PCT}% of the ${CTX_WINDOW}-token window — this session"
+                else
+                    echo "Measured context usage: at most ${CTX_PCT}% (of a 200k window; a 1M window would be a fifth of that) — this session"
+                fi
+                echo "has room, and Parallel Session drops the per-task review loop for no gain."
+                echo "Context pressure is the only reason to recommend it; task count is not."
+                echo ""
+                echo "Re-issue the same AskUserQuestion with \" (Recommended)\" on Subagent-Driven,"
+                if [[ "$CTX_KNOWN" == "1" ]]; then
+                    echo "citing ${CTX_PCT}% in its reason line."
+                else
+                    echo "citing \"at most ${CTX_PCT}%\" in its reason line."
+                fi
+                echo "Window override: SUPERPOWERS_CONTEXT_WINDOW; threshold: SUPERPOWERS_HANDOFF_CTX_PCT."
+            } >&2
+            exit 2
+        fi
+    fi
+    trace "?" "handoff-compliant" "labels ok, ctx=${CTX_PCT:-n/a}% rec=${RECOMMENDED:-none}"
     echo "$ALLOW"; exit 0
 fi
 
@@ -263,9 +386,9 @@ trace "?" "block" "armed=true, required labels missing"
     echo "    header: \"Execution\""
     echo "    options:"
     echo "      - label: \"Subagent-Driven (this session)\""
-    echo "        description: \"I dispatch fresh subagent per task, review between tasks, fast iteration\""
+    echo "        description: \"Runs here: fresh subagent per task, spec and quality review after every task. That review loop is what the other option gives up. Good default.\""
     echo "      - label: \"Parallel Session (separate)\""
-    echo "        description: \"Open new session in worktree with executing-plans, batch execution with checkpoints\""
+    echo "        description: \"You open a second session that runs executing-plans WITHOUT the per-task review loop, while this one stays alive to answer its questions. Choose it when this session is nearly out of context, or when the plan has no frontier tasks and a cheaper model should do the work.\""
     echo ""
     echo "Options:"
     echo "  1. Re-issue AskUserQuestion with exactly that structure. This is the"
