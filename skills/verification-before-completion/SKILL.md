@@ -1,141 +1,48 @@
 ---
 name: verification-before-completion
-description: Use before claiming work complete, fixed, or passing, or before commit/PR - requires running verification commands, confirming output, before any success claim; evidence before assertions, always
+description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
 ---
 
 # Verification Before Completion
 
-## Overview
+Claims require evidence for the actual deliverable. User instructions and explicit gates govern this skill. When the user requires live-only proof, use the authorized real browser/API/production path before and after the mechanism fix; do not generate theoretical tests, test files, scripts, synthetic prompts, or forced-compaction trials. Static document gates still apply when configured.
 
-**Core principle:** Evidence before claims, always.
+## One verification pass
 
-**Violating the letter of this rule is violating the spirit of this rule.**
+Before the final pass, identify the smallest sufficient checks and inspect relevant risks in the actual change.
 
-## The Iron Law
+Evidence starts from the affected real browser or API user flow on an authorized deployed target; otherwise use runnable local/staging, or already-recorded evidence. Do not claim browser/API evidence without observations, and do not treat an isolated green suite as proof of deployed behavior.
 
-```
-NO COMPLETION CLAIMS WITHOUT VERIFICATION EVIDENCE
-```
+A fix needs an observed failure, a concrete reachable defect, or an explicit requirement; a failing automated reproduction is not a prerequisite when the real flow or source evidence demonstrates the defect.
 
-A claim needs evidence for the actual deliverable. Prefer the affected real browser/API flow on an authorized deployed target, otherwise runnable local/staging. An isolated green suite does not establish deployed behavior. Reuse valid recorded evidence for unchanged code/state within its demonstrated scope; a fresh run is required only for changed components, a live gate the user requested, or a claim whose evidence is stale or out of scope. A failing automated reproduction is not a prerequisite for fixing a defect demonstrated by the real flow or supported by source evidence.
+Reuse existing green checks; do not default to speculative suites or synthetic harnesses. Add the smallest focused automated check only when demonstrated behavior needs durable protection, an explicit gate requires it, or a consequential invariant cannot be established by the live flow — name that gap, and the smallest substitute when live observation is unavailable. Reversible instruction/config edits do not require synthetic agent pressure tests.
 
-## The Gate Function
+A credible security, money or concurrency defect may still warrant a bounded investigation from a reachable path without a live exploit; missing live reproduction is not by itself an automatic deferral. Unsupported possible regressions and vulnerabilities stay out of the current fix; record an actual deferred finding in the project's existing KIV/backlog entry with hypothesis, evidence, impact and a concrete reopening condition — no speculative finding lists or empty docs.
 
-```
-BEFORE claiming any status or expressing satisfaction:
+Preflight required paths, installed runtime versions, and access before consuming the test budget. Invocation errors are not proof of a product failure. Correct routine in-scope invocation faults within the user's limits; do not create approval requirements from agent-invented retry counters.
 
-1. IDENTIFY: What check proves this claim on the real flow?
-2. RUN (or cite valid evidence): Execute the check, or reuse a valid recorded result for unchanged code/state within its scope
-3. READ: Full output, check exit code, count failures
-4. VERIFY: Does output confirm the claim?
-   - If NO: State actual status with evidence
-   - If YES: State claim WITH evidence
-5. ONLY THEN: Make the claim
+After a phase or profile change, compare historical capability claims with current tool definitions, permissions and task scope. When the required operation is exposed and permitted, run the planned verifier within the existing budget. If the tool is absent or forbidden, cite that current evidence without probing or bypassing the restriction. Distinguish not attempted, denied and executed-but-failed. An unexecuted verifier needs its exact command, observed limitation or reason for omission, and the smallest authorized recovery owner/route; "primary acceptance required" alone is incomplete.
 
-Skipping the evidence step is the failure; a valid existing observation counts as evidence.
-```
+Read exit status and substantive output. A tool error, timeout, missing dependency, or partial result is not a pass. On an actual failure, make one focused diagnosis under the user's budget and name the remaining blocker/limitation. Do not broaden to unrelated tests or repeat unchanged failed attempts.
 
-## Common Failures
+Current evidence stays valid for unchanged code/state within its demonstrated scope. Reuse it after handoff or compaction; a fresh message or new agent does not require another run. Recheck only a changed component or an explicitly requested live gate. Do not claim current live state from stale evidence.
 
-| Claim | Requires | Not Sufficient |
-|-------|----------|----------------|
-| Tests pass | Test command output: 0 failures | Stale or out-of-scope result, "should pass" |
-| Linter clean | Linter output: 0 errors | Partial check, extrapolation |
-| Build succeeds | Build command: exit 0 | Linter passing, logs look good |
-| Bug fixed | Original symptom observed resolved on the real flow or check | Code changed, assumed fixed |
-| Regression test works | Seen failing on the old behavior, or an observed failure cited | Test passes once with no failure evidence |
-| Agent completed | VCS diff shows changes | Agent reports "success" |
-| Requirements met | Line-by-line checklist | Tests passing |
+Green freezes the verified component. Complete other already-authorized requirements without rerunning it. No adversarial pass, test-of-test, audit-of-audit, speculative hardening, or extra review after green. Do not report the whole outcome complete while required work remains.
 
-## Red Flags - STOP
+## Configured quality gates
 
-- Using "should", "probably", "seems to"
-- Expressing satisfaction before verification ("Great!", "Perfect!", "Done!", etc.)
-- About to commit/push/PR without verification
-- Trusting agent success reports
-- Relying on partial verification
-- Thinking "just this once"
-- Tired and wanting work over
-- **ANY wording implying success without valid evidence for the claim**
+For a repository with quality.json, include this in the existing verification pass:
 
-## Rationalization Prevention
-
-| Excuse | Reality |
-|--------|---------|
-| "Should work now" | RUN the verification |
-| "I'm confident" | Confidence ≠ evidence |
-| "Just this once" | No exceptions |
-| "Linter passed" | Linter ≠ compiler |
-| "Agent said success" | Verify independently |
-| "I'm tired" | Exhaustion ≠ excuse |
-| "Partial check is enough" | Partial proves nothing |
-| "Different words so rule doesn't apply" | Spirit over letter |
-
-## Key Patterns
-
-**Tests:**
-```
-✅ [Run test command] [See: 34/34 pass] "All tests pass"
-❌ "Should pass now" / "Looks correct"
+```sh
+python3 "/Library/Application Support/AgentRules/cleat/cleat-manual.py" --config /absolute/repo/quality.json
 ```
 
-**Regression tests (Red-Green):**
-```
-✅ Watch the check fail on the old behavior (or cite the failure already observed), then see it pass with the fix
-❌ "I've written a regression test" (never seen to fail, and no other evidence of the defect)
-```
+Shared rule/skill edits use /Users/Shared/AgentRules/quality/quality.json. The adapter supports doc_size, doc_citations, escapes, and duplication; other sections fail explicitly. Silent exit 0 passes. Report the failing gate's actionable sites or timeout. No automatic baseline acceptance, ceiling increase, attach, hooks, or strict/postflight rerun. Details: /Users/Shared/AgentRules/quality/README.md.
 
-**Build:**
-```
-✅ [Run build] [See: exit 0] "Build passes"
-❌ "Linter passed" (linter doesn't check compilation)
-```
+## Evidence and limits
 
-**Requirements:**
-```
-✅ Re-read plan → Create checklist → Verify each → Report gaps or completion
-❌ "Tests pass, phase complete"
-```
+Match the claim to the observation: tests prove the exercised behavior; syntax proves parsing; a deployment needs its relevant live evidence. Inspect a worker's actual diff/result rather than trusting a DONE label. Choose one sufficient verification method rather than stacking reviews.
 
-**Agent delegation:**
-```
-✅ Agent reports success → Check VCS diff → Verify changes → Report actual state
-❌ Trust agent report
-```
+Separate proposed, edited, executed, deployed and observed outcomes. A relevant behavior-specific check establishes the behavior it exercises; it does not establish unrelated deployment or live integration, and a generic green suite or a worker's DONE label is not observed behavior. Claim 'fixed' only where relevant evidence establishes the affected behavior; 'configured' may be claimed from actual source or delivery evidence. Missing evidence narrows the claim and never expands verification, reopens accepted work or pauses authorized delivery.
 
-## When To Apply
-
-**ALWAYS before:**
-- ANY variation of success/completion claims
-- ANY expression of satisfaction
-- ANY positive statement about work state
-- Committing, PR creation, task completion
-- Moving to next task
-- Delegating to agents
-
-**Rule applies to:**
-- Exact phrases
-- Paraphrases and synonyms
-- Implications of success
-- ANY communication suggesting completion/correctness
-
-## Scope and deferred findings
-
-Unsupported possible regressions and vulnerabilities stay outside the current fix. Record an actual deferred finding in the project's existing KIV/backlog entry — hypothesis, available evidence, possible impact and a concrete reopening condition — instead of hunting for speculative findings or creating empty docs. A credible security, money or concurrency defect may still warrant a bounded investigation from a reachable path without a live exploit; missing live reproduction is not by itself an automatic deferral.
-
-One verification pass, and no adversarial pass, test-of-test or audit-of-audit after green. Read the change and its evidence once against the claim; findings the reader needs go in as facts, process narration does not. When description and reality disagree, reality wins and the gap is itself a finding, reported in one line.
-
-## Live State Beats Description
-
-Verification runs against the LIVE system, not its description. Sources rank by how they lie:
-
-| The claim comes from | Treat it as | Verify by |
-|---|---|---|
-| A README, doc, or wiki | Stale by default | Run the code path, read the actual source |
-| A code comment | The code's opinion of itself | Read the code the comment describes |
-| A config file in the repo | What was INTENDED | Query the running system for the EFFECTIVE value |
-| Your memory or an earlier session | A point-in-time observation | Re-check now — the system moved since |
-| The user's description | Honest but possibly outdated | Confirm with a read-only probe |
-| A schema or type definition | Better, but migrations lie | Inspect actual data or live schema when it matters |
-
-Pick the **cheapest sufficient check**: if the authoritative artifact is already in front of you, the check IS reading it — probe (run it, query it, curl it) only when the truth is not in view or behavior could differ from the text. When description and reality disagree, reality wins AND the gap itself is a finding — report it in one line ("README says X, code does Y"). Timestamp what you learn: "as of this check, X" ages honestly; "X is true" rots silently.
+Explicit user gates preserve their required command, fixture, acceptance criteria, ordering, and evidence axes. Do not replace them with a cheaper check. Complete unaffected work if a gate is blocked. Report the exact missing evidence and safest substitute without pretending the original check passed.

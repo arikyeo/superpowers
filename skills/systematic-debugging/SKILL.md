@@ -1,289 +1,45 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: Use for bugs, failing checks, unexpected behavior, performance regressions, drift after a steering correction, or a task resumed after compaction, before proposing fixes
 ---
 
 # Systematic Debugging
 
-## Overview
+Find the actual cause before changing code, and keep the fix inside the user's existing authority and verification budget.
 
-**Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
+Provider safety-classifier refusals are not code defects: if an otherwise legitimate request is refused, follow the refusal clause in `/Users/Shared/AgentRules/shared/refs/waiting-and-delegation.md` instead of this flow.
 
-**Violating the letter of this process is violating the spirit of debugging.**
+Cheaper models (e.g. Luna, Haiku or Sonnet) and models needing clearer steps: apply the conditional scaffold in `/Users/Shared/AgentRules/shared/refs/subagent-output.md`, then use the diagnostic flow below.
 
-## The Iron Law
+## Flow
 
-```
-NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
-```
+1. **Confirm the symptom on the affected flow.** Start with the affected real browser or API user flow on an authorized deployed target; otherwise use runnable local/staging or evidence already recorded. Capture the failing command or request and its output, the affected caller and data path, and the environment and version. Keep standing production restrictions (no generic suites or destructive, schema, concurrency and purge checks on production; read-only or expressly authorized seed-QA actions only) and do not create a new approval for already authorized safe work. Separate observation from inference; a reported cause is a hypothesis, not a finding — if a source or baseline it alleges is absent, say so without inventing evidence, while authorized creation still happens. Confirm the symptom is the one reported rather than a neighbour.
+2. **Use the smallest existing surface.** Prefer an existing test, script, log, trace, or a single command that exercises the exact path. A fix needs an observed failure, a concrete reachable defect, or an explicit requirement; a failing automated reproduction is not a prerequisite for a defect demonstrated by the real flow or supported by source evidence. A user live-only rule prohibits generated tests, test scripts, synthetic prompts, and forced-compaction trials; exercise the authorized real path or name the exact gap. Do not build diagnostic infrastructure or instrument unrelated components to satisfy a ritual. When a boundary is genuinely opaque, inspect its inputs and outputs with the tools already at hand. When a real debugger backend is available, observe live state with breakpoints (conditional or invariant) instead of adding print statements, and trace where a wrong value first appears up the call stack. Tag temporary probes and remove them before reporting.
+3. **Compare with working behavior.** Find the closest working case — the same path before a change, a sibling component, the reference implementation — and name the concrete difference. Check recent changes to that path. Trace only the duplicate producers/consumers of the touched behavior that bear on the hypothesis; an intentional copy is not a defect by itself.
+4. **State one falsifiable hypothesis** in a sentence: "X causes the failure because Y; if X is changed or removed, the symptom disappears while Z stays constant." Name the observation that would disprove it.
+5. **Change one supported cause.** Make the smallest edit that addresses the hypothesis. Keep unrelated improvements out of the diff. If the hypothesis fails, revise it from the new evidence; do not stack fixes. Surface a silent fallback only when it explains the observed symptom.
+6. **Verify the affected flow within the existing budget.** Exercise the affected real browser or API flow again — or the command that demonstrated the failure — plus any check the user's own rules require. An isolated green suite does not establish deployed behavior. Add the smallest focused automated check only when demonstrated behavior needs durable protection, an explicit gate requires it, or a consequential invariant cannot be established by the live flow; name that gap. Reuse valid observed failures and green evidence: do not replay a known failure, and do not start repeated test loops, full suites or new infrastructure unless the task's rules require it. Green ends checking, not authorized integration or delivery.
+7. **Report** the cause, the fix, the evidence, and what remains unknown. If no cause can be established, say so with the evidence gathered instead of presenting a guess as a fix.
 
-If you haven't completed Phase 1, you cannot propose fixes.
+Re-steering after a correction means reconciling the actual symptom, the current authority, and the evidence with the next action. Do not replay work that is already complete.
 
-## When to Use
+Unsupported possible regressions and vulnerabilities stay outside the current fix. Record an actual deferred finding in the project's existing KIV/backlog — one concise entry, or a single doc only when none exists — with hypothesis, evidence, impact and a concrete reopening condition; no speculative findings list or empty docs. A credible security, money or concurrency defect may still warrant a bounded investigation from a reachable path without a live exploit; missing live reproduction is not by itself an automatic deferral.
 
-Use for ANY technical issue:
-- Test failures
-- Bugs in production
-- Unexpected behavior
-- Performance problems
-- Build failures
-- Integration issues
+## Root-cause tracing
 
-**Use this ESPECIALLY when:**
-- Under time pressure (emergencies make guessing tempting)
-- "Just one quick fix" seems obvious
-- You've already tried multiple fixes
-- Previous fix didn't work
-- You don't fully understand the issue
+When the failure appears deep in a call stack, work backwards: where does the bad value originate, what passed it in, and what does the source tolerate. `root-cause-tracing.md` has the full technique. `defense-in-depth.md` covers validation layers after the cause is known; `condition-based-waiting.md` replaces arbitrary sleeps with condition polling.
 
-**Don't skip when:**
-- Issue seems simple (simple bugs have root causes too)
-- You're in a hurry (rushing guarantees rework)
-- Manager wants it fixed NOW (systematic is faster than thrashing)
+## Performance
 
-## The Four Phases
+When the problem is slowness, memory, throughput, or a claimed speedup, read `performance-profiling.md` before changing code: measure a comparable baseline, profile on the axis that matches the metric, and confirm the hotspot before optimizing. Do not profile production or add benchmark frameworks without authorization.
 
-You MUST complete each phase before proceeding to the next.
+## Safety
 
-### Phase 1: Root Cause Investigation
+- Never print, log or commit secret values, environment dumps or keychain contents to diagnose anything. Presence checks must return booleans, never values; keep diagnostic output out of shared logs.
+- Destructive, irreversible, costly, or production-facing actions need the user's existing authorization. Diagnosis that does not require them continues; a required production restart, rollback, or data change is a gate.
+- Preserve the user's uncommitted work. Do not revert, reset, or clean their tree to make a check pass.
+- Report only what the evidence supports. "Fixed" means the affected behavior is observed resolved on the real flow, or the relevant check now passes; otherwise name the gap.
 
-**BEFORE attempting ANY fix:**
+## When to stop
 
-1. **Read Error Messages Carefully**
-   - Don't skip past errors or warnings
-   - They often contain the exact solution
-   - Read stack traces completely
-   - Note line numbers, file paths, error codes
-
-2. **Reproduce Consistently**
-   - Start with the affected real browser or API user flow on an authorized deployed target; otherwise use runnable local/staging or evidence already recorded
-   - Keep standing production restrictions (no generic suites, no schema, destructive, concurrency or purge checks on production; read-only or expressly authorized seed-QA actions only); do not create a new approval for already authorized safe work
-   - Can you trigger it reliably?
-   - What are the exact steps?
-   - Does it happen every time?
-   - If not reproducible → gather more data, don't guess
-
-3. **Check Recent Changes**
-   - What changed that could cause this?
-   - Git diff, recent commits
-   - New dependencies, config changes
-   - Environmental differences
-
-4. **Gather Evidence in Multi-Component Systems**
-
-   **WHEN system has multiple components (CI → build → signing, API → service → database):**
-
-   **BEFORE proposing fixes, add diagnostic instrumentation:**
-   ```
-   For EACH component boundary:
-     - Log what data enters component
-     - Log what data exits component
-     - Verify environment/config propagation
-     - Check state at each layer
-
-   Run once to gather evidence showing WHERE it breaks
-   THEN analyze evidence to identify failing component
-   THEN investigate that specific component
-   ```
-
-   **Example (multi-layer system):**
-   ```bash
-   # Layer 1: Workflow
-   echo "=== Secrets available in workflow: ==="
-   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
-
-   # Layer 2: Build script
-   echo "=== Env vars in build script: ==="
-   env | grep IDENTITY || echo "IDENTITY not in environment"
-
-   # Layer 3: Signing script
-   echo "=== Keychain state: ==="
-   security list-keychains
-   security find-identity -v
-
-   # Layer 4: Actual signing
-   codesign --sign "$IDENTITY" --verbose=4 "$APP"
-   ```
-
-   **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
-
-5. **Trace Data Flow**
-
-   **WHEN error is deep in call stack:**
-
-   See `root-cause-tracing.md` in this directory for the complete backward tracing technique.
-
-   **Quick version:**
-   - Where does bad value originate?
-   - What called this with bad value?
-   - Keep tracing up until you find the source
-   - Fix at source, not at symptom
-
-### Phase 2: Pattern Analysis
-
-**Find the pattern before fixing:**
-
-1. **Find Working Examples**
-   - Locate similar working code in same codebase
-   - What works that's similar to what's broken?
-
-2. **Compare Against References**
-   - If implementing pattern, read reference implementation COMPLETELY
-   - Don't skim - read every line
-   - Understand the pattern fully before applying
-
-3. **Identify Differences**
-   - What's different between working and broken?
-   - List every difference, however small
-   - Don't assume "that can't matter"
-
-4. **Understand Dependencies**
-   - What other components does this need?
-   - What settings, config, environment?
-   - What assumptions does it make?
-
-### Phase 3: Hypothesis and Testing
-
-**Scientific method:**
-
-1. **Form Single Hypothesis**
-   - State clearly: "I think X is the root cause because Y"
-   - Write it down
-   - Be specific, not vague
-
-2. **Test Minimally**
-   - Make the SMALLEST possible change to test hypothesis
-   - One variable at a time
-   - Don't fix multiple things at once
-
-3. **Verify Before Continuing**
-   - Did it work? Yes → Phase 4
-   - Didn't work? Form NEW hypothesis
-   - DON'T add more fixes on top
-
-4. **When You Don't Know**
-   - Say "I don't understand X"
-   - Don't pretend to know
-   - Ask for help
-   - Research more
-
-### Phase 4: Implementation
-
-**Scope and deferred findings.** Unsupported possible regressions and vulnerabilities stay outside the current fix. Record an actual deferred finding in the project's existing KIV/backlog document — one concise entry, or a single doc only when none exists — with the hypothesis, available evidence, possible impact and a concrete reopening condition; do not manufacture a speculative findings list or create empty docs. A credible security, money or concurrency defect may still warrant a bounded investigation from a reachable path without a live exploit; missing live reproduction is not by itself an automatic deferral.
-
-**Fix the root cause, not the symptom:**
-
-1. **Establish observed failure or a supported defect — a failing test is not required**
-   - A fix needs an observed failure, a concrete reachable defect, or an explicit requirement
-   - A failing automated reproduction is not a prerequisite for a defect demonstrated by the affected browser/API flow or supported by source evidence
-   - Add the smallest focused automated check only when demonstrated behavior needs durable protection, an explicit gate requires it, or a consequential invariant the live flow cannot establish
-   - Simplest possible reproduction; automated test if one already fits; never theoretical suites, broad edge-case scaffolding or a test-of-test
-   - Use the `superpowers-extended-cc:test-driven-development` skill only when a durable automated check is actually warranted
-
-2. **Implement Single Fix**
-   - Address the root cause identified
-   - ONE change at a time
-   - No "while I'm here" improvements
-   - No bundled refactoring
-
-3. **Verify Fix on the affected flow**
-   - Exercise the affected real browser/API flow again, or the command that demonstrated the failure
-   - An isolated green suite does not establish deployed behavior
-   - Reuse valid observed failures and green evidence; do not replay a known failure
-   - Respect the user's check/command budget and stop-on-green
-   - Issue actually resolved?
-   - Use the `superpowers-extended-cc:verification-before-completion` skill before claiming success
-
-4. **If Fix Doesn't Work**
-   - STOP
-   - Count: How many fixes have you tried?
-   - If < 3: Return to Phase 1, re-analyze with new information
-   - **If ≥ 3: STOP and question the architecture (step 5 below)**
-   - DON'T attempt Fix #4 without architectural discussion
-
-5. **If 3+ Fixes Failed: Question Architecture**
-
-   **Pattern indicating architectural problem:**
-   - Each fix reveals new shared state/coupling/problem in different place
-   - Fixes require "massive refactoring" to implement
-   - Each fix creates new symptoms elsewhere
-
-   **STOP and question fundamentals:**
-   - Is this pattern fundamentally sound?
-   - Are we "sticking with it through sheer inertia"?
-   - Should we refactor architecture vs. continue fixing symptoms?
-
-   **Discuss with your human partner before attempting more fixes**
-
-   This is NOT a failed hypothesis - this is a wrong architecture.
-
-## Red Flags - STOP and Follow Process
-
-If you catch yourself thinking:
-- "Quick fix for now, investigate later"
-- "Just try changing X and see if it works"
-- "Add multiple changes, run tests"
-- "Skip observing the affected flow, I'll trust the code"
-- "It's probably X, let me fix that"
-- "I don't fully understand but this might work"
-- "Pattern says X but I'll adapt it differently"
-- "Here are the main problems: [lists fixes without investigation]"
-- Proposing solutions before tracing data flow
-- **"One more fix attempt" (when already tried 2+)**
-- **Each fix reveals new problem in different place**
-
-**ALL of these mean: STOP. Return to Phase 1.**
-
-**If 3+ fixes failed:** Question the architecture (see Phase 4.5)
-
-## your human partner's Signals You're Doing It Wrong
-
-**Watch for these redirections:**
-- "Is that not happening?" - You assumed without verifying
-- "Will it show us...?" - You should have added evidence gathering
-- "Stop guessing" - You're proposing fixes without understanding
-- "Ultra-think this" - Question fundamentals, not just symptoms
-- "We're stuck?" (frustrated) - Your approach isn't working
-
-**When you see these:** STOP. Return to Phase 1.
-
-## Common Rationalizations
-
-| Excuse | Reality |
-|--------|---------|
-| "Issue is simple, don't need process" | Simple issues have root causes too. Process is fast for simple bugs. |
-| "Emergency, no time for process" | Systematic debugging is FASTER than guess-and-check thrashing. |
-| "Just try this first, then investigate" | First fix sets the pattern. Do it right from the start. |
-| "I'll write test after confirming fix works" | The fix still needs an observed failure or a supported defect; a durable automated check is added only when it protects demonstrated behavior |
-| "Multiple fixes at once saves time" | Can't isolate what worked. Causes new bugs. |
-| "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
-| "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
-| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Question pattern, don't fix again. |
-
-## Quick Reference
-
-| Phase | Key Activities | Success Criteria |
-|-------|---------------|------------------|
-| **1. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
-| **2. Pattern** | Find working examples, compare | Identify differences |
-| **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
-| **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
-
-## When Process Reveals "No Root Cause"
-
-If systematic investigation reveals issue is truly environmental, timing-dependent, or external:
-
-1. You've completed the process
-2. Document what you investigated
-3. Implement appropriate handling (retry, timeout, error message)
-4. Add monitoring/logging for future investigation
-
-**But:** 95% of "no root cause" cases are incomplete investigation.
-
-## Supporting Techniques
-
-These techniques are part of systematic debugging and available in this directory:
-
-- **`root-cause-tracing.md`** - Trace bugs backward through call stack to find original trigger
-- **`defense-in-depth.md`** - Add validation at multiple layers after finding root cause
-- **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
+Stop when the cause is established and the fix verified within budget, when the user's verification limits are reached, or when the next diagnostic step needs authority you do not have. Report what was established, what was ruled out, and the next action. Complete any remaining authorized integration and delivery.

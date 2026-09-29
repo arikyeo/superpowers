@@ -38,7 +38,7 @@ Do not force unchanged retries. Agent-created packet sizes, review counters, and
 
 Choose verification or a specifically requested review; do not stack mandatory spec review, quality review, final review, and re-review loops. No automatic adversarial pass after green. Concrete failures follow the user's focused diagnosis budget; unrelated findings never extend the task.
 
-Use verification-before-completion for one proportionate final pass. Account for cached input, native children and recovery through existing receipts; compare accepted ordinary outcomes without replay benchmarks. Consume current worker evidence for unchanged components; do not rerun it merely because a new agent is reading. Preserve exact live checks explicitly requested by the user. Never manufacture a pass.
+For user-facing behavior, assign a browser exercise of the real running app on an authorized deployed target, otherwise runnable local/staging; no pass without observations. Reuse green checks. Use a focused runnable check only for a consequential hidden invariant, explicit gate, unavailable browser/app, or non-UI work; name the gap and smallest substitute. Use verification-before-completion for one proportionate final pass. Consume current evidence for unchanged components; preserve exact requested live checks. Never manufacture a pass.
 
 Keep goal, authorization, settled decisions, completed evidence, remaining work, and next action in existing progress. After compaction, read that record and continue in the same task. Never redispatch completed work, require a new task solely by compaction count, archive the calling task, or delete another task's artifacts.
 
