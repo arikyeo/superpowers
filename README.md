@@ -2,6 +2,8 @@
 
 A community-maintained fork of [obra/superpowers](https://github.com/obra/superpowers) specifically for Claude Code users.
 
+This downstream (arikyeo/superpowers) tracks both upstreams (obra/superpowers and pcvelz/superpowers). On top of the Claude Code plugin it carries the owner's Codex adapter/plugin manifest and a lean-policy skill body set, and it keeps the native OpenCode, Cursor, Kimi, Gemini, Hermes, Muse, and Devin harness files upstream ships so those integrations stay available.
+
 ## Why This Fork Exists
 
 The original Superpowers is designed as a cross-platform toolkit that works across multiple AI CLI tools (Claude Code, Codex, OpenCode, Gemini CLI). Features unique to Claude Code fall outside the scope of the upstream project due to its [cross-platform nature](https://github.com/obra/superpowers/pull/344#issuecomment-3795515617).
@@ -58,39 +60,37 @@ This fork integrates Claude Code-native features into the Superpowers workflow.
 
 ## Installation
 
-### Option 1: Via Marketplace (recommended)
-
 ```bash
 # Register marketplace
 /plugin marketplace add pcvelz/superpowers
 
 # Install plugin
 /plugin install superpowers-extended-cc@superpowers-extended-cc-marketplace
+
+# Recommended: enable auto-update (/plugin → Marketplaces tab)
 ```
 
-### Option 2: Direct URL
+Alternatively, install directly from the repository URL: `/plugin install --source url https://github.com/pcvelz/superpowers.git`
 
-```bash
-/plugin install --source url https://github.com/pcvelz/superpowers.git
-```
-
-### Stay Updated (recommended)
-
-Third-party marketplaces don't auto-update by default — installs stay frozen on the original version until you refresh. To get future fixes and new optional hooks automatically:
-
-1. Run `/plugin`
-2. Open the **Marketplaces** tab
-3. Toggle **Enable auto-update** on `superpowers-extended-cc-marketplace`
-
-Or refresh manually any time:
+### Automatic Setup (recommended)
 
 ```
-/plugin marketplace update superpowers-extended-cc-marketplace
+/superpowers-extended-cc:onboard
 ```
 
-### Verify Installation
+It turns the native task tools back on (required on Claude Code 2.1.233+), can enable marketplace auto-update, and walks you through the optional features (model routing, user-gate enforcement, commit strategy). One scope choice governs every write.
 
-Run `/superpowers-extended-cc:onboard` for a guided walkthrough of the optional features (model routing, user-gate enforcement, commit strategy). One scope choice governs every write; manual setup is documented below.
+### Manual Setup
+
+Everything the onboarding configures can also be set up by hand. The one required step:
+
+**Turn the task tools back on (required on Claude Code 2.1.233+).** Claude Code 2.1.233 removed the task tools by default, and this plugin is built on them. Add this to `~/.claude/settings.json` (all projects) or `<project>/.claude/settings.json`:
+
+```json
+{"env": {"CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"}}
+```
+
+The optional features are documented in their own sections below.
 
 ## The Basic Workflow
 
