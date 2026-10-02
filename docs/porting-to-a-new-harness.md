@@ -157,9 +157,10 @@ A port is finished when **all** of these are true:
 
 A quick smoke check before the full acceptance test: start a session and ask the
 model to describe its superpowers. If the bootstrap injected, it knows it has
-them. (OpenCode's install doc uses `opencode run --print-logs "hello" 2>&1 |
-grep -i superpowers` for the same goal via a different mechanism — log-grep
-rather than asking the model; the `2>&1` matters because logs go to stderr. Find
+them. (OpenCode's install doc uses `opencode run --print-logs "hello" < /dev/null
+2>&1 | grep -i superpowers` for the same goal via a different mechanism — log-grep
+rather than asking the model; the `2>&1` matters because logs go to stderr, and
+`< /dev/null` keeps `opencode run` from waiting on a non-terminal stdin. Find
 your harness's equivalent.)
 
 ---

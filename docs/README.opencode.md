@@ -178,14 +178,17 @@ In short, V2 renamed `task` → `subagent` (the agent name moved from `subagent_
 **V1:** Check OpenCode logs:
 
 ```
-opencode run --print-logs "hello" 2>&1 | grep -i superpowers
+opencode run --print-logs "hello" < /dev/null 2>&1 | grep -i superpowers
 ```
+
+`< /dev/null` matters in agent and CI shells: OpenCode 1.18.x `opencode run`
+waits for stdin to close whenever stdin is not a terminal.
 
 **V2:** Plugins load in the background server, whose logs `--print-logs` only
 shows with `--standalone`:
 
 ```
-opencode run --standalone --print-logs "hello" 2>&1 | grep -i superpowers
+opencode run --standalone --print-logs "hello" < /dev/null 2>&1 | grep -i superpowers
 ```
 
 Or inspect `~/.local/share/opencode/log/opencode.log`, filtering for `role=server`.
